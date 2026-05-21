@@ -1,0 +1,141 @@
+name: Deploy Website to GCS (production)
+
+# Manual trigger only. Promote to production when dev is known-good.
+#
+# Run it from:
+#   GitHub → Actions → Deploy Website to GCS (production) → Run workflow
+# Or:
+#   gh workflow run deploy-gcs.yml -f confirm=deploy
+#
+# What this does:
+#   1. Type-check + lint (matches HHjsFrontEnd checks job).
+#   2. Build the SPA with VITE_API_BASE_URL=${{ secrets.BACKEND_URL }}/api.
+#      BACKEND_URL is the same secret used by HHjsFrontEnd — points at
+#      https://api.factree.com.au in prod.
+#   3. gsutil rsync the dist/ folder to gs://${{ secrets.GCS_WEBSITE_BUCKET }}
+#      with --delete-after so removed files don't linger.
+#   4. Invalidate the Cloud CDN cache for the website host's URL map.
+#
+# Required GitHub secrets (organisation or repo-level):
+#   GCP_PROJECT_ID         (e.g. factree-prod)
+#   GCP_REGION             (e.g. australia-southeast1)
+#   GCP_SA_KEY             service-account JSON with Storage Object Admin on
+#                          the bucket + Compute Network Admin (for cache invalidate)
+#   GCS_WEBSITE_BUCKET     (e.g. factree-prod-website)  — no gs:// prefix
+#   GCS_WEBSITE_URL_MAP    (e.g. hh-lb-url-map)          — the LB url-map name
+#                          that has a host rule for website.factree.com.au
+#   BACKEND_URL            (e.g. https://api.factree.com.au) — shared with hh-frontend
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm production deploy'
+        required: true
+        default: ''
+
+concurrency:
+  group: deploy-gcs-website
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION:     ${{ secrets.GCP_REGION }}
+  BUCKET:         ${{ secrets.GCS_WEBSITE_BUCKET }}
+  URL_MAP:        ${{ secrets.GCS_WEBSITE_URL_MAP }}
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "deploy" ]; then
+            echo "You must type 'deploy' in the confirm input to proceed."
+            exit 1
+          fi
+
+  checks:
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # npm install (not npm ci) to match the self-hosted dev workflow.
+      - run: npm install
+      - run: npx tsc --noEmit
+      - run: npx eslint .
+
+  build-and-deploy:
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build static SPA
+        env:
+          VITE_API_BASE_URL: ${{ secrets.BACKEND_URL }}/api
+        run: npm run build
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify bucket exists
+        run: |
+          if ! gsutil ls -b "gs://$BUCKET" >/dev/null 2>&1; then
+            echo "::error::Bucket gs://$BUCKET does not exist or the deploy SA can't see it. See HHWebsite/README.md for one-time setup."
+            exit 1
+          fi
+
+      - name: Sync dist/ → gs://$BUCKET
+        # -m: parallel, -r: recursive, -d: delete remote files not in source,
+        # -c: checksum-based (more reliable than mtime for CI environments).
+        # Set long cache for hashed assets, short cache for the entry HTML so
+        # users pick up new bundle references promptly.
+        run: |
+          gsutil -m -h "Cache-Control:public,max-age=31536000,immutable" \
+            rsync -r -d -c -x '^index\.html$' dist "gs://$BUCKET"
+          gsutil -m -h "Cache-Control:no-cache,max-age=0" \
+            cp dist/index.html "gs://$BUCKET/index.html"
+
+      - name: Invalidate Cloud CDN cache
+        # Best-effort: invalidate the website host's path on the shared LB.
+        # If URL_MAP is unset (e.g. first deploy before LB is wired up), skip.
+        run: |
+          if [ -z "${URL_MAP}" ]; then
+            echo "GCS_WEBSITE_URL_MAP secret not set — skipping CDN invalidate."
+            exit 0
+          fi
+          gcloud compute url-maps invalidate-cdn-cache "$URL_MAP" \
+            --host=website.factree.com.au \
+            --path='/*' \
+            --project="$GCP_PROJECT_ID" \
+            --async
+
+      - name: Summary
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          ICON="✅" && [ "$STATUS" != "success" ] && ICON="❌"
+          {
+            echo "## Website prod deploy $ICON $STATUS"
+            echo "- **Commit:** \`${{ github.sha }}\`"
+            echo "- **By:**     ${{ github.actor }}"
+            echo "- **Bucket:** \`gs://$BUCKET\`"
+            echo "- **URL:**    https://website.factree.com.au"
+            echo "- **Time:**   $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          } >> $GITHUB_STEP_SUMMARY

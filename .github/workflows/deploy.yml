@@ -1,0 +1,141 @@
+name: Deploy Website (dev)
+
+# Self-hosted Windows runner deploys the public marketing site to the dev box at
+# C:\node\HHWebsite and runs it under PM2 (vite dev server on port 5175).
+# Reverse-proxy your dev gateway entry for website.factree.au at this port.
+#
+# Mirrors HHjsFrontEnd/.github/workflows/deploy.yml so the operational model
+# stays consistent across all three Factree dev apps.
+
+on:
+  push:
+    branches: [main]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: deploy-website
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, windows]
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Configure git safe directories
+        shell: pwsh
+        run: |
+          git config --global --add safe.directory "${{ github.workspace }}"
+          git config --global --add safe.directory "C:/node/HHWebsite"
+
+      - name: Verify checkout SHA
+        shell: pwsh
+        run: |
+          $head = git rev-parse HEAD
+          if ($head -ne "${{ github.sha }}") {
+            Write-Error "Checkout SHA mismatch: expected ${{ github.sha }}, got $head"
+            exit 1
+          }
+          Write-Host "Checkout verified: $head"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies (workspace)
+        run: npm install
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx eslint .
+
+      - name: Stop PM2 (release file locks)
+        shell: pwsh
+        run: |
+          pm2 stop hh-website 2>$null
+          Write-Host "PM2 stopped hh-website (if running)"
+
+      - name: Deploy source files
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "C:\node\HHWebsite")) {
+            Write-Error "Deploy target C:\node\HHWebsite does not exist. One-time setup: git clone the repo into C:\node\HHWebsite, copy .env.local from .env.example, populate VITE_API_BASE_URL=https://api.factree.au/api"
+            exit 1
+          }
+          cd C:\node\HHWebsite
+          git fetch origin main
+          git reset --hard origin/main
+          Write-Host "Deployed: $(git rev-parse HEAD)"
+
+      - name: Verify .env.local exists
+        shell: pwsh
+        run: |
+          # .env.local is the dev server's runtime config (gitignored, local-only).
+          # Vite auto-loads it in both dev and build modes.
+          if (-not (Test-Path "C:\node\HHWebsite\.env.local")) {
+            Write-Error ".env.local file is missing at C:\node\HHWebsite\.env.local — aborting!"
+            exit 1
+          }
+          Write-Host ".env.local file verified"
+
+      - name: Install dependencies (server)
+        shell: pwsh
+        run: |
+          cd C:\node\HHWebsite
+          npm install
+
+      - name: Start PM2
+        shell: pwsh
+        run: |
+          cd C:\node\HHWebsite
+          pm2 delete hh-website 2>$null
+          pm2 start ecosystem.config.cjs
+          pm2 save
+          Start-Sleep -Seconds 3
+          pm2 status
+          Write-Host "PM2 started and saved"
+
+      - name: Health check
+        shell: pwsh
+        run: |
+          $maxRetries = 10
+          $delay = 5
+          for ($i = 1; $i -le $maxRetries; $i++) {
+            Start-Sleep -Seconds $delay
+            try {
+              $response = Invoke-WebRequest -Uri "http://localhost:5175" -UseBasicParsing -TimeoutSec 5
+              if ($response.StatusCode -eq 200) {
+                Write-Host "Health check passed (attempt $i)"
+                exit 0
+              }
+            } catch {
+              Write-Host "Attempt $i/$maxRetries failed: $_"
+            }
+          }
+          Write-Error "Health check failed after $maxRetries attempts"
+          exit 1
+
+      - name: Summary
+        if: always()
+        shell: pwsh
+        run: |
+          $status = if ("${{ job.status }}" -eq "success") { "✅ Deployed" } else { "❌ Failed" }
+          $summary = @"
+          ## Website Deploy $status
+          - **Commit:** ``${{ github.sha }}``
+          - **Branch:** ``${{ github.ref_name }}``
+          - **By:** ${{ github.actor }}
+          - **Time:** $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+          - **URL (dev):** https://website.factree.au
+          "@
+          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
