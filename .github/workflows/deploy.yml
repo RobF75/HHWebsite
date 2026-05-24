@@ -14,6 +14,7 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   DEPLOY_PATH: C:\HHWebsite
+  PM2_HOME: C:\HHWebsite\.pm2
   DEFAULT_VITE_API_BASE_URL: https://api.factree.au/api
 
 concurrency:
@@ -65,6 +66,7 @@ jobs:
       - name: Stop PM2 (release file locks)
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Path $env:PM2_HOME -Force | Out-Null
           pm2 describe hh-website *> $null
           if ($LASTEXITCODE -eq 0) {
             pm2 stop hh-website
@@ -139,6 +141,7 @@ jobs:
         shell: pwsh
         run: |
           cd $env:DEPLOY_PATH
+          New-Item -ItemType Directory -Path $env:PM2_HOME -Force | Out-Null
           pm2 delete hh-website 2>$null
           pm2 start ecosystem.config.cjs
           pm2 save
