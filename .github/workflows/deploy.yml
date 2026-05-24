@@ -66,18 +66,15 @@ jobs:
       - name: Resolve shared PM2 home
         shell: pwsh
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:PM2_HOME_PATH)) {
-            Write-Error "PM2_HOME_PATH is required for shared PM2 mode. Set repository variable PM2_HOME_PATH to your existing PM2 home path (example: C:\\Users\\<service-user>\\.pm2)."
-            exit 1
-          }
+          $resolvedPm2Home = if ([string]::IsNullOrWhiteSpace($env:PM2_HOME_PATH)) { "C:\\ProgramData\\pm2\\home" } else { $env:PM2_HOME_PATH }
 
-          New-Item -ItemType Directory -Path $env:PM2_HOME_PATH -Force | Out-Null
-          $probe = Join-Path $env:PM2_HOME_PATH ".write-probe"
+          New-Item -ItemType Directory -Path $resolvedPm2Home -Force | Out-Null
+          $probe = Join-Path $resolvedPm2Home ".write-probe"
           Set-Content -Path $probe -Value "ok"
           Remove-Item -Path $probe -Force
 
-          "PM2_HOME=$env:PM2_HOME_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          Write-Host "Using shared PM2_HOME=$env:PM2_HOME_PATH"
+          "PM2_HOME=$resolvedPm2Home" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Using shared PM2_HOME=$resolvedPm2Home"
 
       - name: Stop PM2 (release file locks)
         shell: pwsh
