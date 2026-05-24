@@ -109,7 +109,26 @@ Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
 # 3. Extract
 Write-Host "==> Extracting ..." -ForegroundColor Cyan
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-[System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $InstallPath)
+$tempExtractDir = Join-Path $InstallPath "_extract_tmp"
+try {
+    # Prefer overwrite-capable extraction when available.
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $InstallPath, $true)
+}
+catch {
+    if ($_.Exception -is [System.Management.Automation.MethodException]) {
+        Write-Host "==> Overwrite extract API not available; using temp extraction fallback ..." -ForegroundColor Yellow
+        if (Test-Path $tempExtractDir) {
+            Remove-Item -Path $tempExtractDir -Recurse -Force
+        }
+        New-Item -ItemType Directory -Path $tempExtractDir | Out-Null
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $tempExtractDir)
+        Get-ChildItem -Path $tempExtractDir -Force | Move-Item -Destination $InstallPath -Force
+        Remove-Item -Path $tempExtractDir -Recurse -Force
+    }
+    else {
+        throw
+    }
+}
 Remove-Item $zip
 
 # Some runner archives extract into a single nested folder. If that happened,
