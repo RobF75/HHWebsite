@@ -1,7 +1,7 @@
 name: Deploy Website (dev)
 
 # Self-hosted Windows runner deploys the public marketing site to the dev box at
-# C:\node\HHWebsite and runs it under PM2 (vite dev server on port 5175).
+# C:\HHWebsite and runs it under PM2 (vite dev server on port 5175).
 # Reverse-proxy your dev gateway entry for website.factree.au at this port.
 #
 # Mirrors HHjsFrontEnd/.github/workflows/deploy.yml so the operational model
@@ -13,6 +13,7 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  DEPLOY_PATH: C:\HHWebsite
 
 concurrency:
   group: deploy-website
@@ -33,7 +34,8 @@ jobs:
         shell: pwsh
         run: |
           git config --global --add safe.directory "${{ github.workspace }}"
-          git config --global --add safe.directory "C:/node/HHWebsite"
+          $safePath = ($env:DEPLOY_PATH -replace '\\', '/')
+          git config --global --add safe.directory "$safePath"
 
       - name: Verify checkout SHA
         shell: pwsh
@@ -78,11 +80,11 @@ jobs:
       - name: Deploy source files
         shell: pwsh
         run: |
-          if (-not (Test-Path "C:\node\HHWebsite")) {
-            Write-Error "Deploy target C:\node\HHWebsite does not exist. One-time setup: git clone the repo into C:\node\HHWebsite, copy .env.local from .env.example, populate VITE_API_BASE_URL=https://api.factree.au/api"
+          if (-not (Test-Path $env:DEPLOY_PATH)) {
+            Write-Error "Deploy target $env:DEPLOY_PATH does not exist. One-time setup: git clone the repo into $env:DEPLOY_PATH, copy .env.local from .env.example, populate VITE_API_BASE_URL=https://api.factree.au/api"
             exit 1
           }
-          cd C:\node\HHWebsite
+          cd $env:DEPLOY_PATH
           git fetch origin main
           git reset --hard origin/main
           Write-Host "Deployed: $(git rev-parse HEAD)"
@@ -92,8 +94,9 @@ jobs:
         run: |
           # .env.local is the dev server's runtime config (gitignored, local-only).
           # Vite auto-loads it in both dev and build modes.
-          if (-not (Test-Path "C:\node\HHWebsite\.env.local")) {
-            Write-Error ".env.local file is missing at C:\node\HHWebsite\.env.local — aborting!"
+          $envFile = Join-Path $env:DEPLOY_PATH ".env.local"
+          if (-not (Test-Path $envFile)) {
+            Write-Error ".env.local file is missing at $envFile — aborting!"
             exit 1
           }
           Write-Host ".env.local file verified"
@@ -101,13 +104,13 @@ jobs:
       - name: Install dependencies (server)
         shell: pwsh
         run: |
-          cd C:\node\HHWebsite
+          cd $env:DEPLOY_PATH
           npm install
 
       - name: Start PM2
         shell: pwsh
         run: |
-          cd C:\node\HHWebsite
+          cd $env:DEPLOY_PATH
           pm2 delete hh-website 2>$null
           pm2 start ecosystem.config.cjs
           pm2 save
