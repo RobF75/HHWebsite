@@ -14,6 +14,7 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   DEPLOY_PATH: C:\HHWebsite
+  DEFAULT_VITE_API_BASE_URL: https://api.factree.au/api
 
 concurrency:
   group: deploy-website
@@ -89,17 +90,40 @@ jobs:
           git reset --hard origin/main
           Write-Host "Deployed: $(git rev-parse HEAD)"
 
-      - name: Verify .env.local exists
+      - name: Ensure .env.local exists
         shell: pwsh
         run: |
           # .env.local is the dev server's runtime config (gitignored, local-only).
           # Vite auto-loads it in both dev and build modes.
           $envFile = Join-Path $env:DEPLOY_PATH ".env.local"
           if (-not (Test-Path $envFile)) {
-            Write-Error ".env.local file is missing at $envFile — aborting!"
-            exit 1
+            $exampleEnvFile = Join-Path $env:DEPLOY_PATH ".env.example"
+            if (Test-Path $exampleEnvFile) {
+              Copy-Item -Path $exampleEnvFile -Destination $envFile -Force
+            } else {
+              Set-Content -Path $envFile -Value ""
+            }
+
+            $content = Get-Content -Path $envFile -Raw -ErrorAction SilentlyContinue
+            if ($null -eq $content) {
+              $content = ""
+            }
+
+            if ($content -match '(?m)^\s*VITE_API_BASE_URL\s*=') {
+              $updated = [regex]::Replace(
+                $content,
+                '(?m)^\s*VITE_API_BASE_URL\s*=.*$',
+                "VITE_API_BASE_URL=$env:DEFAULT_VITE_API_BASE_URL"
+              )
+              Set-Content -Path $envFile -Value $updated
+            } else {
+              Add-Content -Path $envFile -Value "VITE_API_BASE_URL=$env:DEFAULT_VITE_API_BASE_URL"
+            }
+
+            Write-Warning ".env.local was missing and has been created at $envFile"
+          } else {
+            Write-Host ".env.local file verified"
           }
-          Write-Host ".env.local file verified"
 
       - name: Install dependencies (server)
         shell: pwsh
