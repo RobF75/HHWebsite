@@ -5,7 +5,10 @@
 # but won't touch an existing registration unless you pass -Reconfigure.
 #
 # Usage:
-#   .\install-runner.ps1 -Token <REGISTRATION_TOKEN>
+#   First-time setup:
+#     .\install-runner.ps1 -Token <REGISTRATION_TOKEN>
+#   Re-run on an already configured runner:
+#     .\install-runner.ps1
 #
 # Where to get the token:
 #   https://github.com/RobF75/HHWebsite/settings/actions/runners/new
@@ -26,7 +29,7 @@
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $false)]
     [string]$Token,
 
     [string]$RunnerName  = "$env:COMPUTERNAME-hhwebsite",
@@ -62,6 +65,44 @@ function Check-LastExit($context) {
     }
 }
 
+function Get-RunnerServiceName {
+    param([string]$RunnerRoot)
+
+    $serviceFile = Join-Path $RunnerRoot ".service"
+    if (-not (Test-Path $serviceFile)) {
+        return $null
+    }
+
+    $name = (Get-Content -Path $serviceFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+    if ([string]::IsNullOrWhiteSpace($name)) {
+        return $null
+    }
+
+    return $name.Trim()
+}
+
+function Remove-RunnerService {
+    param([string]$ServiceName)
+
+    if ([string]::IsNullOrWhiteSpace($ServiceName)) {
+        return
+    }
+
+    $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+    if ($null -eq $svc) {
+        return
+    }
+
+    if ($svc.Status -ne 'Stopped') {
+        Write-Host "    Stopping existing service '$ServiceName' ..."
+        Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+    }
+
+    Write-Host "    Deleting existing service '$ServiceName' ..."
+    & sc.exe delete $ServiceName | Out-Null
+}
+
 Require-Admin
 
 if ([string]::IsNullOrWhiteSpace($RunnerVersion)) {
@@ -79,14 +120,15 @@ if (Test-Path $InstallPath) {
         Write-Host "==> -Reconfigure set - removing existing $InstallPath" -ForegroundColor Yellow
         Push-Location $InstallPath
         try {
-            if (Test-Path ".\svc.cmd") {
-                Write-Host "    Stopping + uninstalling existing service ..."
-                & .\svc.cmd stop 2>$null      | Out-Null
-                & .\svc.cmd uninstall 2>$null | Out-Null
-            }
+            Remove-RunnerService -ServiceName (Get-RunnerServiceName -RunnerRoot $InstallPath)
+
             if (Test-Path ".\config.cmd") {
                 Write-Host "    Removing existing registration (best-effort) ..."
-                & .\config.cmd remove --token $Token 2>$null | Out-Null
+                if ([string]::IsNullOrWhiteSpace($Token)) {
+                    & .\config.cmd remove --local 2>$null | Out-Null
+                } else {
+                    & .\config.cmd remove --token $Token 2>$null | Out-Null
+                }
             }
         } finally { Pop-Location }
         Remove-Item -Recurse -Force $InstallPath
@@ -132,8 +174,8 @@ catch {
 Remove-Item $zip
 
 # Some runner archives extract into a single nested folder. If that happened,
-# promote its contents to $InstallPath so config/svc scripts are in the root.
-$requiredFiles = @('config.cmd', 'svc.cmd', 'run.cmd')
+# promote its contents to $InstallPath so runner scripts are in the root.
+$requiredFiles = @('config.cmd', 'run.cmd')
 $allInRoot = $true
 foreach ($f in $requiredFiles) {
     if (-not (Test-Path (Join-Path $InstallPath $f))) {
@@ -146,7 +188,6 @@ if (-not $allInRoot) {
     $nestedRunnerRoot = Get-ChildItem -Path $InstallPath -Directory -ErrorAction SilentlyContinue |
         Where-Object {
             (Test-Path (Join-Path $_.FullName 'config.cmd')) -and
-            (Test-Path (Join-Path $_.FullName 'svc.cmd')) -and
             (Test-Path (Join-Path $_.FullName 'run.cmd'))
         } |
         Select-Object -First 1
@@ -169,6 +210,10 @@ foreach ($f in $requiredFiles) {
 Push-Location $InstallPath
 try {
     if (-not (Test-Path ".runner")) {
+        if ([string]::IsNullOrWhiteSpace($Token)) {
+            throw "A registration token is required for first-time configuration. Re-run with -Token <REGISTRATION_TOKEN>."
+        }
+
         Write-Host "==> Configuring runner against $Repo ..." -ForegroundColor Cyan
         & .\config.cmd `
             --unattended `
@@ -177,6 +222,7 @@ try {
             --name $RunnerName `
             --labels "self-hosted,windows" `
             --work "_work" `
+            --runasservice `
             --replace
         Check-LastExit "config.cmd"
 
@@ -187,17 +233,26 @@ try {
         Write-Host "==> Runner already configured (.runner file exists). Skipping config." -ForegroundColor Yellow
     }
 
-    # 5. Install + start service
-    Write-Host "==> Installing Windows service ..." -ForegroundColor Cyan
-    & .\svc.cmd install
-    Check-LastExit "svc.cmd install"
+    # 5. Ensure + start service
+    $serviceName = Get-RunnerServiceName -RunnerRoot $InstallPath
+    if ([string]::IsNullOrWhiteSpace($serviceName)) {
+        throw "Runner service metadata (.service) was not found. Re-run with -Reconfigure and a fresh -Token so the runner can be configured with --runasservice."
+    }
 
-    Write-Host "==> Starting service ..." -ForegroundColor Cyan
-    & .\svc.cmd start
-    Check-LastExit "svc.cmd start"
+    $existingService = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    if ($null -eq $existingService) {
+        throw "Runner service '$serviceName' is not installed. Re-run with -Reconfigure and a fresh -Token."
+    }
+
+    if ($null -ne $existingService -and $existingService.Status -eq 'Running') {
+        Write-Host "==> Service '$serviceName' is already running. Skipping start." -ForegroundColor Yellow
+    } else {
+        Write-Host "==> Starting service '$serviceName' ..." -ForegroundColor Cyan
+        Start-Service -Name $serviceName
+    }
 
     Start-Sleep -Seconds 2
-    & .\svc.cmd status
+    Get-Service -Name $serviceName | Format-Table -AutoSize | Out-Host
 } finally {
     Pop-Location
 }
