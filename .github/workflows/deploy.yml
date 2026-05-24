@@ -62,8 +62,18 @@ jobs:
       - name: Stop PM2 (release file locks)
         shell: pwsh
         run: |
-          pm2 stop hh-website 2>$null
-          Write-Host "PM2 stopped hh-website (if running)"
+          pm2 describe hh-website *> $null
+          if ($LASTEXITCODE -eq 0) {
+            pm2 stop hh-website
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "PM2 found hh-website but failed to stop it."
+              exit 1
+            }
+            Write-Host "PM2 stopped hh-website"
+          } else {
+            Write-Host "PM2 process hh-website was not running"
+            $global:LASTEXITCODE = 0
+          }
 
       - name: Deploy source files
         shell: pwsh
