@@ -1,7 +1,7 @@
 name: Deploy Website (dev)
 
 # Self-hosted Windows runner deploys the public marketing site to the dev box at
-# C:\HHWebsite and runs it under PM2 (vite dev server on port 5175).
+# C:\node\HHWebsite and runs it under PM2 (vite dev server on port 5175).
 # Reverse-proxy your dev gateway entry for website.factree.au at this port.
 #
 # Mirrors HHjsFrontEnd/.github/workflows/deploy.yml so the operational model
@@ -13,8 +13,8 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  DEPLOY_PATH: C:\HHWebsite
-  PM2_HOME: C:\HHWebsite\.pm2
+  DEPLOY_PATH: C:\node\HHWebsite
+  PM2_HOME_PATH: ${{ vars.PM2_HOME_PATH }}
   DEFAULT_VITE_API_BASE_URL: https://api.factree.au/api
 
 concurrency:
@@ -63,10 +63,27 @@ jobs:
       - name: Lint
         run: npx eslint .
 
+      - name: Resolve shared PM2 home
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:PM2_HOME_PATH)) {
+            Write-Error "PM2_HOME_PATH is required for shared PM2 mode. Set repository variable PM2_HOME_PATH to your existing PM2 home path (example: C:\\Users\\<service-user>\\.pm2)."
+            exit 1
+          }
+
+          New-Item -ItemType Directory -Path $env:PM2_HOME_PATH -Force | Out-Null
+          $probe = Join-Path $env:PM2_HOME_PATH ".write-probe"
+          Set-Content -Path $probe -Value "ok"
+          Remove-Item -Path $probe -Force
+
+          "PM2_HOME=$env:PM2_HOME_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Using shared PM2_HOME=$env:PM2_HOME_PATH"
+
       - name: Stop PM2 (release file locks)
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Path $env:PM2_HOME -Force | Out-Null
+          Write-Host "Using PM2_HOME=$env:PM2_HOME"
+
           pm2 describe hh-website *> $null
           if ($LASTEXITCODE -eq 0) {
             pm2 stop hh-website
@@ -141,7 +158,8 @@ jobs:
         shell: pwsh
         run: |
           cd $env:DEPLOY_PATH
-          New-Item -ItemType Directory -Path $env:PM2_HOME -Force | Out-Null
+          Write-Host "Using PM2_HOME=$env:PM2_HOME"
+
           pm2 delete hh-website 2>$null
           pm2 start ecosystem.config.cjs
           pm2 save
