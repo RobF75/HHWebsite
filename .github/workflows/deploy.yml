@@ -98,8 +98,14 @@ jobs:
         shell: pwsh
         run: |
           if (-not (Test-Path $env:DEPLOY_PATH)) {
-            Write-Error "Deploy target $env:DEPLOY_PATH does not exist. One-time setup: git clone the repo into $env:DEPLOY_PATH, copy .env.local from .env.example, populate VITE_API_BASE_URL=https://api.factree.au/api"
-            exit 1
+            Write-Warning "Deploy target $env:DEPLOY_PATH does not exist. Bootstrapping now..."
+            New-Item -ItemType Directory -Path $env:DEPLOY_PATH -Force | Out-Null
+            $repoUrl = "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+            git clone $repoUrl $env:DEPLOY_PATH
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "Failed to bootstrap deploy target at $env:DEPLOY_PATH"
+              exit 1
+            }
           }
           cd $env:DEPLOY_PATH
           git fetch origin main
