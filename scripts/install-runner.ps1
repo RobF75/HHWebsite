@@ -1,7 +1,7 @@
 # =============================================================================
 # Install a GitHub Actions self-hosted runner for RobF75/HHWebsite on this box.
 #
-# Run as Administrator. Idempotent — re-running will refresh the runner binary
+# Run as Administrator. Idempotent - re-running will refresh the runner binary
 # but won't touch an existing registration unless you pass -Reconfigure.
 #
 # Usage:
@@ -9,14 +9,14 @@
 #
 # Where to get the token:
 #   https://github.com/RobF75/HHWebsite/settings/actions/runners/new
-#   → copy the value passed to `./config.cmd --token ...` in the snippet.
+#   -> copy the value passed to `./config.cmd --token ...` in the snippet.
 #   Tokens expire after ~1 hour and are single-use. If you see "invalid token"
 #   or HTTP 404, grab a fresh one and re-run with -Reconfigure.
 #
 # What this does:
 #   1. Resolves the LATEST GitHub Actions runner release for Windows x64.
 #      (Hardcoded versions go stale and start failing registration with HTTP
-#      404 against the current GitHub API — so we always fetch latest.)
+#      404 against the current GitHub API - so we always fetch latest.)
 #   2. Downloads + extracts into C:\actions-runner-hhwebsite\
 #   3. Configures against RobF75/HHWebsite with labels: self-hosted, windows
 #   4. Installs as a Windows service and starts it.
@@ -58,7 +58,7 @@ function Resolve-LatestRunnerVersion {
 
 function Check-LastExit($context) {
     if ($LASTEXITCODE -ne 0) {
-        throw "$context failed with exit code $LASTEXITCODE. See output above. If this was a HTTP 404 from runner-registration, your token has expired or the runner binary is out-of-date — grab a fresh token from $Repo/settings/actions/runners/new and re-run with -Reconfigure."
+        throw "$context failed with exit code $LASTEXITCODE. See output above. If this was a HTTP 404 from runner-registration, your token has expired or the runner binary is out-of-date - grab a fresh token from $Repo/settings/actions/runners/new and re-run with -Reconfigure."
     }
 }
 
@@ -76,7 +76,7 @@ Write-Host "==> Runner version:      $RunnerVersion" -ForegroundColor Cyan
 # 1. Create / clean the install dir
 if (Test-Path $InstallPath) {
     if ($Reconfigure) {
-        Write-Host "==> -Reconfigure set — removing existing $InstallPath" -ForegroundColor Yellow
+        Write-Host "==> -Reconfigure set - removing existing $InstallPath" -ForegroundColor Yellow
         Push-Location $InstallPath
         try {
             if (Test-Path ".\svc.cmd") {
@@ -112,14 +112,41 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $InstallPath)
 Remove-Item $zip
 
-# Verify the runner files actually arrived.
-foreach ($f in @('config.cmd', 'svc.cmd', 'run.cmd')) {
+# Some runner archives extract into a single nested folder. If that happened,
+# promote its contents to $InstallPath so config/svc scripts are in the root.
+$requiredFiles = @('config.cmd', 'svc.cmd', 'run.cmd')
+$allInRoot = $true
+foreach ($f in $requiredFiles) {
     if (-not (Test-Path (Join-Path $InstallPath $f))) {
-        throw "Expected $f not found in $InstallPath after extract. The download may have been incomplete."
+        $allInRoot = $false
+        break
     }
 }
 
-# 4. Configure (idempotent — config.cmd refuses to re-register without remove)
+if (-not $allInRoot) {
+    $nestedRunnerRoot = Get-ChildItem -Path $InstallPath -Directory -ErrorAction SilentlyContinue |
+        Where-Object {
+            (Test-Path (Join-Path $_.FullName 'config.cmd')) -and
+            (Test-Path (Join-Path $_.FullName 'svc.cmd')) -and
+            (Test-Path (Join-Path $_.FullName 'run.cmd'))
+        } |
+        Select-Object -First 1
+
+    if ($null -ne $nestedRunnerRoot) {
+        Write-Host "==> Detected nested runner folder '$($nestedRunnerRoot.Name)'; flattening ..." -ForegroundColor Yellow
+        Get-ChildItem -Path $nestedRunnerRoot.FullName -Force | Move-Item -Destination $InstallPath -Force
+        Remove-Item -Path $nestedRunnerRoot.FullName -Recurse -Force
+    }
+}
+
+# Verify the runner files actually arrived.
+foreach ($f in $requiredFiles) {
+    if (-not (Test-Path (Join-Path $InstallPath $f))) {
+        throw "Expected $f not found in $InstallPath after extract. Check that the downloaded file is the official actions runner zip for Windows x64."
+    }
+}
+
+# 4. Configure (idempotent - config.cmd refuses to re-register without remove)
 Push-Location $InstallPath
 try {
     if (-not (Test-Path ".runner")) {
@@ -135,7 +162,7 @@ try {
         Check-LastExit "config.cmd"
 
         if (-not (Test-Path ".runner")) {
-            throw "config.cmd reported success but no .runner file exists — registration silently failed. Grab a fresh token and re-run with -Reconfigure."
+            throw "config.cmd reported success but no .runner file exists - registration silently failed. Grab a fresh token and re-run with -Reconfigure."
         }
     } else {
         Write-Host "==> Runner already configured (.runner file exists). Skipping config." -ForegroundColor Yellow
