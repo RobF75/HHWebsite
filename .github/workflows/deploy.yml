@@ -129,7 +129,11 @@ jobs:
         shell: pwsh
         run: |
           cd $env:DEPLOY_PATH
-          npm install
+          if (Test-Path "package-lock.json") {
+            npm ci --no-audit --no-fund
+          } else {
+            npm install --no-audit --no-fund --no-package-lock
+          }
 
       - name: Start PM2
         shell: pwsh
