@@ -1,8 +1,96 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getCultivar, mediaUrl } from '../lib/api';
-import type { PublicCultivarDetail, PublicAttributeValue } from '../lib/types';
+import type { PublicCultivarDetail, PublicAttributeValue, PublicCultivarProgram } from '../lib/types';
 import MaturityChart from '../components/MaturityChart';
+
+const PROGRAM_TYPE_LABELS: Record<PublicCultivarProgram['program_type'], string> = {
+  annual_tree_royalty: 'Annual tree royalty',
+  production_royalty: 'Production royalty',
+  per_sale_royalty: 'Per-sale royalty',
+  other: 'Licensing program',
+};
+
+function ProgramPanel({ program }: { program: PublicCultivarProgram }) {
+  const accent = program.brand_color || undefined;
+  const typeLabel =
+    program.program_type === 'other' && program.custom_type_label
+      ? program.custom_type_label
+      : PROGRAM_TYPE_LABELS[program.program_type];
+
+  return (
+    <section
+      className="mt-16 rounded border border-stone-200 overflow-hidden"
+      style={accent ? { borderTopWidth: 4, borderTopColor: accent } : undefined}
+    >
+      {program.hero_image_url && (
+        <div className="aspect-[21/9] overflow-hidden bg-stone-100">
+          <img
+            src={program.hero_image_url}
+            alt={`${program.name} banner`}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        </div>
+      )}
+
+      <div className="p-6 md:p-8">
+        <div className="flex items-start gap-4">
+          {program.logo_url && (
+            <img
+              src={program.logo_url}
+              alt={`${program.name} logo`}
+              className="h-12 w-12 object-contain rounded bg-white border border-stone-200 p-1 flex-none"
+              loading="lazy"
+            />
+          )}
+          <div className="min-w-0">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-accent-700">
+              {typeLabel}
+            </div>
+            <h2 className="font-serif text-2xl tracking-tightish mt-1">{program.name}</h2>
+            {program.organisation_name && (
+              <p className="text-sm text-ink-muted mt-0.5">by {program.organisation_name}</p>
+            )}
+          </div>
+        </div>
+
+        {program.tagline && (
+          <p className="mt-4 text-base text-ink-muted leading-relaxed">{program.tagline}</p>
+        )}
+
+        {program.marketing_description && (
+          <div className="mt-5 text-sm text-ink leading-relaxed whitespace-pre-line">
+            {program.marketing_description}
+          </div>
+        )}
+
+        {program.website_terms && (
+          <details className="mt-6 group">
+            <summary className="cursor-pointer text-sm font-medium text-ink hover:text-accent-700">
+              Conditions of growing
+            </summary>
+            <div className="mt-3 text-sm text-ink-muted leading-relaxed whitespace-pre-line border-l-2 border-stone-200 pl-4">
+              {program.website_terms}
+            </div>
+          </details>
+        )}
+
+        {program.external_url && (
+          <a
+            href={program.external_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-6 inline-flex items-center gap-2 text-sm text-accent-700 hover:underline"
+            style={accent ? { color: accent } : undefined}
+          >
+            Visit program website →
+          </a>
+        )}
+      </div>
+    </section>
+  );
+}
 
 function formatValue(av: PublicAttributeValue): string {
   const v = av.value;
@@ -146,6 +234,10 @@ export default function CultivarPage() {
 
             <MaturityChart attributes={cultivar.attributes} />
 
+            {cultivar.programs
+              ?.filter((p) => p.is_public)
+              .map((p) => <ProgramPanel key={p.id} program={p} />)}
+
             <AttributeGroups attributes={cultivar.attributes} />
 
             {gallery.length > 0 && (
@@ -177,6 +269,9 @@ export default function CultivarPage() {
                 )}
                 {cultivar.year_bred && (
                   <div className="flex justify-between"><dt className="text-ink-muted">Bred</dt><dd>{cultivar.year_bred}</dd></div>
+                )}
+                {cultivar.programs && cultivar.programs.length > 0 && (
+                  <div className="flex justify-between gap-3"><dt className="text-ink-muted">Program</dt><dd className="text-right">{cultivar.programs.map((p) => p.name).join(', ')}</dd></div>
                 )}
               </dl>
             </div>

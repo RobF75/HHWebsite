@@ -6,6 +6,8 @@ export interface PublicSpecies {
   slug: string;
   description: string | null;
   parent_id: number | null;
+  parent_name: string | null;
+  parent_slug: string | null;
   cultivar_count: number;
 }
 
@@ -51,6 +53,24 @@ export interface PublicAttributeValue {
   attribute_is_seasonal: boolean;
 }
 
+export interface PublicCultivarProgram {
+  id: number;
+  name: string;
+  program_type: 'annual_tree_royalty' | 'production_royalty' | 'per_sale_royalty' | 'other';
+  custom_type_label: string | null;
+  description: string | null;
+  organisation_name: string | null;
+  // Marketing payload — only populated when the program has `public = true`.
+  tagline: string | null;
+  logo_url: string | null;
+  hero_image_url: string | null;
+  marketing_description: string | null;
+  website_terms: string | null;
+  brand_color: string | null;
+  external_url: string | null;
+  is_public: boolean;
+}
+
 export interface PublicCultivarDetail extends PublicCultivarSummary {
   origin_country: string | null;
   year_bred: number | null;
@@ -58,6 +78,7 @@ export interface PublicCultivarDetail extends PublicCultivarSummary {
   website_published_at: string | null;
   media: PublicCultivarMedia[];
   attributes: PublicAttributeValue[];
+  programs: PublicCultivarProgram[];
 }
 
 export interface ApiEnvelope<T> {

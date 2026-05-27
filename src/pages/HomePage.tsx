@@ -1,8 +1,28 @@
 import { Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSpecies } from '../hooks/useSpecies';
 import { listCultivars, mediaUrl } from '../lib/api';
-import type { PublicCultivarSummary } from '../lib/types';
+import type { PublicCultivarSummary, PublicSpecies } from '../lib/types';
+
+interface SpeciesGroup {
+  parentName: string | null;
+  children: PublicSpecies[];
+}
+
+function groupByParent(species: PublicSpecies[]): SpeciesGroup[] {
+  const groups = new Map<string, SpeciesGroup>();
+  const ungrouped: SpeciesGroup[] = [];
+  for (const s of species) {
+    if (!s.parent_name) {
+      ungrouped.push({ parentName: null, children: [s] });
+      continue;
+    }
+    const existing = groups.get(s.parent_name);
+    if (existing) existing.children.push(s);
+    else groups.set(s.parent_name, { parentName: s.parent_name, children: [s] });
+  }
+  return [...groups.values(), ...ungrouped];
+}
 
 function Hero() {
   return (
@@ -32,6 +52,8 @@ function Hero() {
 
 function SpeciesGrid() {
   const { species, loading } = useSpecies();
+  const groups = useMemo(() => groupByParent(species), [species]);
+
   return (
     <section id="species" className="container-prose pb-24">
       <div className="flex items-end justify-between mb-10">
@@ -43,18 +65,29 @@ function SpeciesGrid() {
       {loading ? (
         <div className="text-sm text-ink-muted">Loading…</div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {species.map((s) => (
-            <Link
-              key={s.id}
-              to={`/${s.slug}`}
-              className="group block rounded border border-stone-200 bg-white p-6 hover:border-accent-500 transition-colors"
-            >
-              <div className="font-serif text-2xl tracking-tightish text-ink group-hover:text-accent-700">{s.name}</div>
-              <div className="mt-2 text-xs uppercase tracking-[0.15em] text-ink-muted">
-                {s.cultivar_count} cultivar{s.cultivar_count === 1 ? '' : 's'}
+        <div className="space-y-14">
+          {groups.map((g) => (
+            <div key={g.parentName ?? g.children[0].id}>
+              {g.parentName && (
+                <h3 className="font-serif text-xl md:text-2xl tracking-tightish text-ink mb-5 pb-2 border-b border-stone-200">
+                  {g.parentName}
+                </h3>
+              )}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {g.children.map((s) => (
+                  <Link
+                    key={s.id}
+                    to={`/${s.slug}`}
+                    className="group block rounded border border-stone-200 bg-white p-6 hover:border-accent-500 transition-colors"
+                  >
+                    <div className="font-serif text-2xl tracking-tightish text-ink group-hover:text-accent-700">{s.name}</div>
+                    <div className="mt-2 text-xs uppercase tracking-[0.15em] text-ink-muted">
+                      {s.cultivar_count} cultivar{s.cultivar_count === 1 ? '' : 's'}
+                    </div>
+                  </Link>
+                ))}
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}
