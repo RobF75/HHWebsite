@@ -216,8 +216,8 @@ export default function CultivarPage() {
       {/* Hero image */}
       {hero && (
         <div className="container-prose">
-          <div className="aspect-[16/9] overflow-hidden rounded bg-stone-100">
-            <img src={hero} alt={cultivar.name} className="h-full w-full object-cover" />
+          <div className="overflow-hidden rounded bg-stone-100 flex justify-center">
+            <img src={hero} alt={cultivar.name} className="max-h-[70vh] w-auto object-contain" />
           </div>
         </div>
       )}
