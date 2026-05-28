@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { getCultivar, mediaUrl } from '../lib/api';
 import type { PublicCultivarDetail, PublicAttributeValue, PublicCultivarProgram } from '../lib/types';
 import MaturityChart from '../components/MaturityChart';
+import CultivarOrderCta from '../components/CultivarOrderCta';
 
 const PROGRAM_TYPE_LABELS: Record<PublicCultivarProgram['program_type'], string> = {
   annual_tree_royalty: 'Annual tree royalty',
@@ -276,15 +277,7 @@ export default function CultivarPage() {
               </dl>
             </div>
 
-            <div className="rounded bg-accent-50 border border-accent-200 p-6">
-              <h3 className="font-serif text-lg mb-2">Order this cultivar</h3>
-              <p className="text-sm text-ink-muted mb-4">
-                Tell us your volumes, rootstock preferences and target planting season — we'll come back with availability and pricing.
-              </p>
-              <Link to="/contact" className="inline-flex items-center gap-2 bg-ink text-stone-50 px-5 py-2.5 rounded-sm text-sm hover:bg-accent-700 transition-colors">
-                Enquire
-              </Link>
-            </div>
+            <CultivarOrderCta cultivarId={cultivar.id} />
           </aside>
         </div>
       </div>

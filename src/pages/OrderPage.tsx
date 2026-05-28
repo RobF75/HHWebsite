@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { getCatalog, placeOrder } from '../lib/storefront';
 import type { CatalogItem } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +17,9 @@ function itemLabel(it: CatalogItem) {
 export default function OrderPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const cultivarParam = searchParams.get('cultivar');
+  const cultivarFilter = cultivarParam ? Number(cultivarParam) : null;
 
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +33,8 @@ export default function OrderPage() {
 
   useEffect(() => {
     let cancelled = false;
-    getCatalog()
+    setLoading(true);
+    getCatalog(cultivarFilter ?? undefined)
       .then((data) => {
         if (!cancelled) setItems(data);
       })
@@ -43,7 +47,9 @@ export default function OrderPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [cultivarFilter]);
+
+  const filterName = cultivarFilter && items.length > 0 ? (items[0].cultivar_trade_name || items[0].cultivar_name) : null;
 
   function setQuantity(id: number, value: string) {
     const n = Math.max(0, Math.floor(Number(value) || 0));
@@ -97,6 +103,15 @@ export default function OrderPage() {
       {!user?.email_verified && (
         <div className="mt-8 rounded-sm border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Please verify your email address — check your inbox for the verification link.
+        </div>
+      )}
+
+      {cultivarFilter && (
+        <div className="mt-8 flex items-center justify-between gap-3 rounded-sm border border-stone-200 bg-stone-50 px-4 py-2.5 text-sm">
+          <span className="text-ink-muted">
+            Showing {filterName ? <span className="text-ink font-medium">{filterName}</span> : 'one cultivar'} only.
+          </span>
+          <Link to="/order" className="text-accent-700 underline">Show full catalogue</Link>
         </div>
       )}
 

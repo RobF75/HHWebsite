@@ -12,8 +12,9 @@ export interface PlaceOrderInput {
   requested_delivery_date?: string;
 }
 
-export function getCatalog() {
-  return authedJson<CatalogItem[]>('/nursery/catalog');
+export function getCatalog(cultivarId?: number) {
+  const qs = cultivarId ? `?cultivar_id=${cultivarId}` : '';
+  return authedJson<CatalogItem[]>(`/nursery/catalog${qs}`);
 }
 
 // Returns one created order per nursery (a basket can span nurseries).
