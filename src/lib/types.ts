@@ -86,3 +86,61 @@ export interface ApiEnvelope<T> {
   data?: T;
   error?: { message: string };
 }
+
+// ---- Authenticated customer / storefront ----------------------------------
+
+export interface CurrentUser {
+  id: number;
+  username: string;
+  email: string;
+  organisation_id: number | null;
+  organisation_name?: string | null;
+  email_verified: boolean;
+  roles?: string[];
+}
+
+export interface CatalogItem {
+  stock_item_id: number;
+  nursery_org_id: number;
+  nursery_name: string;
+  sku_code: string | null;
+  description: string | null;
+  website_price: string; // NUMERIC arrives as string
+  cultivar_id: number;
+  cultivar_name: string;
+  cultivar_trade_name: string | null;
+  website_tagline: string | null;
+  website_hero_media_id: number | null;
+  rootstock_name: string | null;
+  tree_type_code: string;
+  tree_type_name: string;
+  stock_type: 'B' | 'P';
+  species_name: string | null;
+}
+
+export interface MyOrderLine {
+  id: number;
+  stock_item_id: number;
+  quantity_ordered: number;
+  unit_price: string | null;
+  discount_pct: string | null;
+  line_total: string | null;
+  notes: string | null;
+  cultivar_name: string;
+  rootstock_name: string | null;
+  tree_type_code: string;
+  tree_type_name: string;
+}
+
+export interface MyOrder {
+  id: number;
+  order_number: string;
+  nursery_name: string;
+  order_date: string;
+  requested_delivery_date: string | null;
+  status: string;
+  total_trees: number;
+  total_value: string | null;
+  notes: string | null;
+  lines?: MyOrderLine[];
+}

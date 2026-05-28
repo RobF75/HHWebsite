@@ -1,6 +1,7 @@
-import { Outlet, NavLink, Link, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSpecies } from '../hooks/useSpecies';
+import { useAuth } from '../context/AuthContext';
 import type { PublicSpecies } from '../lib/types';
 
 interface SpeciesGroup {
@@ -50,6 +51,34 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
     'text-sm tracking-wide transition-colors',
     isActive ? 'text-accent-700' : 'text-ink-muted hover:text-ink',
   ].join(' ');
+}
+
+function AuthNav() {
+  const { user, loading, logout } = useAuth();
+  const navigate = useNavigate();
+
+  if (loading) return null;
+
+  if (!user) {
+    return (
+      <NavLink to="/login" className={navLinkClass}>Sign in</NavLink>
+    );
+  }
+
+  async function onSignOut() {
+    await logout();
+    navigate('/');
+  }
+
+  return (
+    <div className="flex items-center gap-6">
+      <NavLink to="/order" className={navLinkClass}>Order</NavLink>
+      <NavLink to="/account/orders" className={navLinkClass}>My orders</NavLink>
+      <button type="button" onClick={onSignOut} className="text-sm tracking-wide text-ink-muted hover:text-ink transition-colors">
+        Sign out
+      </button>
+    </div>
+  );
 }
 
 function SpeciesDropdown({ group }: { group: SpeciesGroup }) {
@@ -173,6 +202,8 @@ function Header() {
           <span className="h-4 w-px bg-stone-300" aria-hidden />
           <NavLink to="/about" className={navLinkClass}>About</NavLink>
           <NavLink to="/contact" className={navLinkClass}>Contact</NavLink>
+          <span className="h-4 w-px bg-stone-300" aria-hidden />
+          <AuthNav />
         </nav>
 
         <button
@@ -212,6 +243,8 @@ function Header() {
             <hr className="border-stone-200" />
             <NavLink to="/about" className={navLinkClass}>About</NavLink>
             <NavLink to="/contact" className={navLinkClass}>Contact</NavLink>
+            <hr className="border-stone-200" />
+            <AuthNav />
           </nav>
         </div>
       )}
