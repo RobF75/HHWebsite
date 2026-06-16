@@ -4,6 +4,8 @@ import { listCultivars } from '../lib/api';
 import { useSpecies } from '../hooks/useSpecies';
 import type { PublicCultivarSummary } from '../lib/types';
 import CultivarCard from '../components/CultivarCard';
+import PbrNotice from '../components/PbrNotice';
+import { isPbrProtected } from '../lib/pbr';
 
 export default function SpeciesPage() {
   const { speciesSlug } = useParams<{ speciesSlug: string }>();
@@ -74,11 +76,17 @@ export default function SpeciesPage() {
         ) : filtered.length === 0 ? (
           <div className="text-sm text-ink-muted">No cultivars to display.</div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
-            {filtered.map((c) => (
-              <CultivarCard key={c.id} cultivar={c} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+              {filtered.map((c) => (
+                <CultivarCard key={c.id} cultivar={c} />
+              ))}
+            </div>
+            <PbrNotice
+              show={filtered.some((c) => isPbrProtected(c.protection_status))}
+              className="mt-12"
+            />
+          </>
         )}
       </div>
     </div>

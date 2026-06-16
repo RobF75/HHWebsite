@@ -3,6 +3,9 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { getCatalog, placeOrder } from '../lib/storefront';
 import type { CatalogItem } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
+import PbrMark from '../components/PbrMark';
+import PbrNotice from '../components/PbrNotice';
+import { isPbrProtected } from '../lib/pbr';
 
 function money(n: number) {
   return n.toLocaleString('en-AU', { style: 'currency', currency: 'AUD' });
@@ -123,6 +126,7 @@ export default function OrderPage() {
       )}
 
       {!loading && items.length > 0 && (
+        <>
         <div className="mt-10 grid grid-cols-1 lg:grid-cols-[1fr_20rem] gap-10 items-start">
           {/* Catalogue */}
           <div className="divide-y divide-stone-200 border-y border-stone-200">
@@ -132,7 +136,10 @@ export default function OrderPage() {
               return (
                 <div key={it.stock_item_id} className="flex items-center gap-4 py-4">
                   <div className="min-w-0 flex-1">
-                    <div className="font-serif text-lg leading-snug">{itemLabel(it)}</div>
+                    <div className="font-serif text-lg leading-snug">
+                      {itemLabel(it)}
+                      <PbrMark status={it.cultivar_protection_status} />
+                    </div>
                     <div className="text-xs text-ink-muted mt-0.5">
                       {it.tree_type_name}
                       {it.species_name ? ` · ${it.species_name}` : ''}
@@ -208,6 +215,11 @@ export default function OrderPage() {
             </p>
           </aside>
         </div>
+        <PbrNotice
+          show={items.some((it) => isPbrProtected(it.cultivar_protection_status))}
+          className="mt-8"
+        />
+        </>
       )}
     </div>
   );

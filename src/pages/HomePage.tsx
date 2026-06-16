@@ -3,6 +3,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSpecies } from '../hooks/useSpecies';
 import { listCultivars, mediaUrl } from '../lib/api';
 import type { PublicCultivarSummary, PublicSpecies } from '../lib/types';
+import PbrMark from '../components/PbrMark';
+import PbrNotice from '../components/PbrNotice';
+import { isPbrProtected } from '../lib/pbr';
 
 interface SpeciesGroup {
   parentName: string | null;
@@ -129,7 +132,10 @@ function Featured() {
                 )}
               </div>
               <div className="mt-4">
-                <div className="font-serif text-xl tracking-tightish">{c.trade_name || c.name}</div>
+                <div className="font-serif text-xl tracking-tightish">
+                  {c.trade_name || c.name}
+                  <PbrMark status={c.protection_status} />
+                </div>
                 {c.crop_type_name && (
                   <div className="mt-1 text-xs uppercase tracking-[0.14em] text-ink-muted">{c.crop_type_name}</div>
                 )}
@@ -137,6 +143,10 @@ function Featured() {
             </Link>
           ))}
         </div>
+        <PbrNotice
+          show={cultivars.some((c) => isPbrProtected(c.protection_status))}
+          className="mt-10"
+        />
       </div>
     </section>
   );

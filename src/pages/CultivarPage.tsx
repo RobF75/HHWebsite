@@ -4,6 +4,8 @@ import { getCultivar, mediaUrl } from '../lib/api';
 import type { PublicCultivarDetail, PublicAttributeValue, PublicCultivarProgram } from '../lib/types';
 import MaturityChart from '../components/MaturityChart';
 import CultivarOrderCta from '../components/CultivarOrderCta';
+import PbrMark from '../components/PbrMark';
+import PbrNotice from '../components/PbrNotice';
 
 const PROGRAM_TYPE_LABELS: Record<PublicCultivarProgram['program_type'], string> = {
   annual_tree_royalty: 'Annual tree royalty',
@@ -202,6 +204,7 @@ export default function CultivarPage() {
         </div>
         <h1 className="font-serif text-5xl md:text-7xl tracking-tightish leading-[1.05]">
           {cultivar.trade_name || cultivar.name}
+          <PbrMark status={cultivar.protection_status} />
         </h1>
         {cultivar.trade_name && cultivar.name !== cultivar.trade_name && (
           <p className="mt-4 text-xl text-ink-muted italic">{cultivar.name}</p>
@@ -212,6 +215,7 @@ export default function CultivarPage() {
         {cultivar.website_tagline && (
           <p className="mt-8 max-w-2xl text-lg text-ink-muted leading-relaxed">{cultivar.website_tagline}</p>
         )}
+        <PbrNotice status={cultivar.protection_status} className="mt-8 max-w-2xl" />
       </div>
 
       {/* Hero image */}

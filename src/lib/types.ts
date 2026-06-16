@@ -24,6 +24,9 @@ export interface PublicCultivarSummary {
   website_tagline: string | null;
   website_sort_order: number;
   hero_media_id: number | null;
+  // PBR labelling — 'pending' | 'protected' means the variety is under PBR and
+  // the symbol + verbatim notice MUST be shown wherever its name appears.
+  protection_status: string | null;
 }
 
 export interface PublicCultivarMedia {
@@ -109,6 +112,7 @@ export interface CatalogItem {
   cultivar_id: number;
   cultivar_name: string;
   cultivar_trade_name: string | null;
+  cultivar_protection_status: string | null;
   website_tagline: string | null;
   website_hero_media_id: number | null;
   rootstock_name: string | null;

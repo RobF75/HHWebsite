@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { PublicCultivarSummary } from '../lib/types';
 import { mediaUrl } from '../lib/api';
+import PbrMark from './PbrMark';
 
 interface Props {
   cultivar: PublicCultivarSummary;
@@ -31,6 +32,7 @@ export default function CultivarCard({ cultivar }: Props) {
         <div className="flex items-baseline justify-between gap-2">
           <h3 className="font-serif text-xl tracking-tightish">
             {cultivar.trade_name || cultivar.name}
+            <PbrMark status={cultivar.protection_status} />
           </h3>
           {cultivar.cultivar_role === 'rootstock' && (
             <span className="text-[10px] uppercase tracking-[0.15em] text-ink-muted">Rootstock</span>
