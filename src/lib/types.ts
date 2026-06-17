@@ -102,13 +102,24 @@ export interface CurrentUser {
   roles?: string[];
 }
 
+export interface PriceBreak {
+  min_quantity: number;
+  unit_price: number;
+}
+
 export interface CatalogItem {
   stock_item_id: number;
   nursery_org_id: number;
   nursery_name: string;
   sku_code: string | null;
   description: string | null;
-  website_price: string; // NUMERIC arrives as string
+  website_price: string; // NUMERIC arrives as string — public RRP
+  // Tier-resolved pricing for the logged-in customer (computed server-side).
+  unit_price: number;    // what THIS customer pays per unit at qty 1
+  list_price: number;    // public RRP as a number
+  price_breaks: PriceBreak[];
+  tier_name: string | null;
+  nursery_customer_id: number | null;
   cultivar_id: number;
   cultivar_name: string;
   cultivar_trade_name: string | null;
@@ -146,5 +157,44 @@ export interface MyOrder {
   total_trees: number;
   total_value: string | null;
   notes: string | null;
+  fulfilment_method?: 'pickup' | 'delivery';
+  delivery_fee?: string | null;
+  payment_status?: 'not_required' | 'pending' | 'paid' | 'failed';
   lines?: MyOrderLine[];
+}
+
+// ---- Trade-account applications -------------------------------------------
+
+export interface TradeTier {
+  id: number;
+  name: string;
+  code: string | null;
+  payment_mode: 'online' | 'on_account';
+}
+
+export interface TradeAccountRequest {
+  id: number;
+  organisation_id: number;
+  customer_org_id: number;
+  requested_tier_id: number | null;
+  requested_tier_name: string | null;
+  granted_tier_name: string | null;
+  business_name: string;
+  abn: string | null;
+  status: 'pending' | 'approved' | 'declined';
+  review_notes: string | null;
+  created_at: string;
+  reviewed_at: string | null;
+}
+
+export interface TradeAccountRequestInput {
+  nursery_org_id: number;
+  requested_tier_id?: number | null;
+  business_name: string;
+  abn?: string;
+  contact_name?: string;
+  phone?: string;
+  email?: string;
+  delivery_address?: string;
+  notes?: string;
 }

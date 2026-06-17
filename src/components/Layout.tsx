@@ -74,6 +74,7 @@ function AuthNav() {
     <div className="flex items-center gap-6">
       <NavLink to="/order" className={navLinkClass}>Order</NavLink>
       <NavLink to="/account/orders" className={navLinkClass}>My orders</NavLink>
+      <NavLink to="/account/trade" className={navLinkClass}>Trade account</NavLink>
       <button type="button" onClick={onSignOut} className="text-sm tracking-wide text-ink-muted hover:text-ink transition-colors">
         Sign out
       </button>

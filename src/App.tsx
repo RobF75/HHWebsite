@@ -10,6 +10,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import OrderPage from './pages/OrderPage';
 import MyOrdersPage from './pages/MyOrdersPage';
+import TradeAccountPage from './pages/TradeAccountPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="register" element={<RegisterPage />} />
         <Route path="order" element={<RequireAuth><OrderPage /></RequireAuth>} />
         <Route path="account/orders" element={<RequireAuth><MyOrdersPage /></RequireAuth>} />
+        <Route path="account/trade" element={<RequireAuth><TradeAccountPage /></RequireAuth>} />
         <Route path="cultivar/:id" element={<CultivarPage />} />
         <Route path=":speciesSlug" element={<SpeciesPage />} />
         <Route path="*" element={<NotFoundPage />} />

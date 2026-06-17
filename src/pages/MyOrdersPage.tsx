@@ -1,12 +1,19 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { getMyOrders } from '../lib/storefront';
 import type { MyOrder } from '../lib/types';
 
-function money(v: string | null) {
+function money(v: string | null | undefined) {
   const n = Number(v ?? 0);
   return n.toLocaleString('en-AU', { style: 'currency', currency: 'AUD' });
 }
+
+const PAYMENT_BADGE: Record<string, { label: string; cls: string }> = {
+  paid: { label: 'Paid', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  pending: { label: 'Payment pending', cls: 'bg-amber-50 text-amber-800 border-amber-200' },
+  failed: { label: 'Payment failed', cls: 'bg-red-50 text-red-700 border-red-200' },
+  not_required: { label: 'On account', cls: 'bg-stone-100 text-stone-600 border-stone-200' },
+};
 
 const STATUS_LABEL: Record<string, string> = {
   draft: 'Submitted',
@@ -24,6 +31,9 @@ const STATUS_LABEL: Record<string, string> = {
 export default function MyOrdersPage() {
   const location = useLocation();
   const placed = (location.state as { placed?: number } | null)?.placed;
+  const [searchParams] = useSearchParams();
+  const justPaid = searchParams.get('paid') === '1';
+  const canceled = searchParams.get('canceled') === '1';
 
   const [orders, setOrders] = useState<MyOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,7 +71,15 @@ export default function MyOrdersPage() {
         </Link>
       </div>
 
-      {placed ? (
+      {justPaid ? (
+        <div className="mt-8 rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          Payment received — thank you! Your order is confirmed. (Payment status updates within a moment.)
+        </div>
+      ) : canceled ? (
+        <div className="mt-8 rounded-sm border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Checkout was cancelled — your order hasn't been paid. You can try again from your order below.
+        </div>
+      ) : placed ? (
         <div className="mt-8 rounded-sm border border-accent-200 bg-accent-50 px-4 py-3 text-sm text-accent-800">
           Thank you — your order request has been submitted. We'll be in touch to confirm.
         </div>
@@ -85,21 +103,33 @@ export default function MyOrdersPage() {
                 <th className="py-3 pr-4 font-normal">Nursery</th>
                 <th className="py-3 pr-4 font-normal">Date</th>
                 <th className="py-3 pr-4 font-normal">Status</th>
+                <th className="py-3 pr-4 font-normal">Payment</th>
                 <th className="py-3 pr-4 font-normal text-right">Trees</th>
                 <th className="py-3 font-normal text-right">Value</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-200">
-              {orders.map((o) => (
-                <tr key={o.id}>
-                  <td className="py-3 pr-4 font-medium">{o.order_number}</td>
-                  <td className="py-3 pr-4 text-ink-muted">{o.nursery_name}</td>
-                  <td className="py-3 pr-4 text-ink-muted tabular-nums">{o.order_date}</td>
-                  <td className="py-3 pr-4">{STATUS_LABEL[o.status] ?? o.status}</td>
-                  <td className="py-3 pr-4 text-right tabular-nums">{o.total_trees}</td>
-                  <td className="py-3 text-right tabular-nums">{money(o.total_value)}</td>
-                </tr>
-              ))}
+              {orders.map((o) => {
+                const badge = o.payment_status ? PAYMENT_BADGE[o.payment_status] : null;
+                const value = Number(o.total_value ?? 0) + Number(o.delivery_fee ?? 0);
+                return (
+                  <tr key={o.id}>
+                    <td className="py-3 pr-4 font-medium">{o.order_number}</td>
+                    <td className="py-3 pr-4 text-ink-muted">{o.nursery_name}</td>
+                    <td className="py-3 pr-4 text-ink-muted tabular-nums">{o.order_date}</td>
+                    <td className="py-3 pr-4">{STATUS_LABEL[o.status] ?? o.status}</td>
+                    <td className="py-3 pr-4">
+                      {badge && (
+                        <span className={`inline-flex items-center rounded-sm border px-2 py-0.5 text-xs ${badge.cls}`}>
+                          {badge.label}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 pr-4 text-right tabular-nums">{o.total_trees}</td>
+                    <td className="py-3 text-right tabular-nums">{money(String(value))}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

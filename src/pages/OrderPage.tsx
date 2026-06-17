@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { getCatalog, placeOrder } from '../lib/storefront';
+import { getCatalog, placeOrder, quoteDelivery } from '../lib/storefront';
+import type { DeliveryQuote } from '../lib/storefront';
 import type { CatalogItem } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
 import PbrMark from '../components/PbrMark';
@@ -15,6 +16,20 @@ function itemLabel(it: CatalogItem) {
   const name = it.cultivar_trade_name || it.cultivar_name;
   const root = it.rootstock_name ? ` on ${it.rootstock_name}` : '';
   return `${name}${root}`;
+}
+
+// Effective per-unit price for a given quantity: the highest volume break whose
+// threshold the quantity meets, else the base tier price. Mirrors the server's
+// resolveUnitPriceForTier so the basket total matches what's charged.
+function unitPriceFor(it: CatalogItem, qty: number): number {
+  const q = Math.max(qty, 1);
+  if (it.price_breaks && it.price_breaks.length > 0) {
+    const applicable = it.price_breaks
+      .filter((b) => b.min_quantity <= q)
+      .sort((a, b) => b.min_quantity - a.min_quantity)[0];
+    if (applicable) return applicable.unit_price;
+  }
+  return it.unit_price;
 }
 
 export default function OrderPage() {
@@ -33,6 +48,13 @@ export default function OrderPage() {
   const [deliveryDate, setDeliveryDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Fulfilment
+  const [fulfilment, setFulfilment] = useState<'pickup' | 'delivery'>('pickup');
+  const [postcode, setPostcode] = useState('');
+  const [address, setAddress] = useState('');
+  const [quotes, setQuotes] = useState<DeliveryQuote[]>([]);
+  const [quoting, setQuoting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,9 +87,42 @@ export default function OrderPage() {
   );
 
   const total = useMemo(
-    () => lines.reduce((sum, it) => sum + Number(it.website_price) * (qty[it.stock_item_id] ?? 0), 0),
+    () => lines.reduce((sum, it) => sum + unitPriceFor(it, qty[it.stock_item_id] ?? 0) * (qty[it.stock_item_id] ?? 0), 0),
     [lines, qty]
   );
+
+  // The customer's tier (consistent across a single-nursery catalogue).
+  const tierName = items.find((it) => it.tier_name)?.tier_name ?? null;
+
+  // Quote delivery whenever the basket / postcode / method changes (debounced).
+  const lineKey = lines.map((it) => `${it.stock_item_id}:${qty[it.stock_item_id]}`).join(',');
+  useEffect(() => {
+    if (fulfilment !== 'delivery' || lines.length === 0 || postcode.trim().length < 3) {
+      setQuotes([]);
+      return;
+    }
+    let cancelled = false;
+    setQuoting(true);
+    const timer = setTimeout(() => {
+      quoteDelivery({
+        lines: lines.map((it) => ({ stock_item_id: it.stock_item_id, quantity_ordered: qty[it.stock_item_id] })),
+        fulfilment_method: 'delivery',
+        delivery_postcode: postcode.trim(),
+      })
+        .then((q) => { if (!cancelled) setQuotes(q); })
+        .catch(() => { if (!cancelled) setQuotes([]); })
+        .finally(() => { if (!cancelled) setQuoting(false); });
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fulfilment, postcode, lineKey]);
+
+  const deliveryFee = useMemo(
+    () => (fulfilment === 'delivery' ? quotes.reduce((sum, q) => sum + (q.available ? q.fee : 0), 0) : 0),
+    [fulfilment, quotes]
+  );
+  const deliveryUnavailable = fulfilment === 'delivery' && quotes.length > 0 && quotes.some((q) => !q.available);
+  const grandTotal = total + deliveryFee;
 
   const totalTrees = useMemo(
     () => lines.reduce((sum, it) => sum + (qty[it.stock_item_id] ?? 0), 0),
@@ -78,12 +133,20 @@ export default function OrderPage() {
     setSubmitError(null);
     setSubmitting(true);
     try {
-      const created = await placeOrder({
+      const result = await placeOrder({
         lines: lines.map((it) => ({ stock_item_id: it.stock_item_id, quantity_ordered: qty[it.stock_item_id] })),
         notes: notes.trim() || undefined,
         requested_delivery_date: deliveryDate || undefined,
+        fulfilment_method: fulfilment,
+        delivery_postcode: fulfilment === 'delivery' ? postcode.trim() : undefined,
+        delivery_address: fulfilment === 'delivery' ? address.trim() || undefined : undefined,
       });
-      navigate('/account/orders', { state: { placed: created.length } });
+      // Retail: redirect to Stripe Checkout. Wholesale: straight to the orders page.
+      if (result.checkout_url) {
+        window.location.href = result.checkout_url;
+        return;
+      }
+      navigate('/account/orders', { state: { placed: result.orders.length, paymentPending: result.payment_pending } });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Could not place order');
     } finally {
@@ -98,7 +161,10 @@ export default function OrderPage() {
           <p className="text-[11px] uppercase tracking-[0.22em] text-accent-700 mb-4">Place an order</p>
           <h1 className="font-serif text-4xl md:text-5xl tracking-tightish leading-[1.05]">Order trees</h1>
           {user?.organisation_name && (
-            <p className="mt-3 text-sm text-ink-muted">Ordering as {user.organisation_name}</p>
+            <p className="mt-3 text-sm text-ink-muted">
+              Ordering as {user.organisation_name}
+              {tierName && <span className="ml-2 inline-flex items-center rounded-sm border border-accent-200 bg-accent-50 px-2 py-0.5 text-xs text-accent-800">{tierName} pricing</span>}
+            </p>
           )}
         </div>
       </div>
@@ -131,8 +197,10 @@ export default function OrderPage() {
           {/* Catalogue */}
           <div className="divide-y divide-stone-200 border-y border-stone-200">
             {items.map((it) => {
-              const price = Number(it.website_price);
               const n = qty[it.stock_item_id] ?? 0;
+              const price = unitPriceFor(it, n);
+              const hasBreaks = it.price_breaks && it.price_breaks.length > 1;
+              const discounted = price < it.list_price;
               return (
                 <div key={it.stock_item_id} className="flex items-center gap-4 py-4">
                   <div className="min-w-0 flex-1">
@@ -144,9 +212,15 @@ export default function OrderPage() {
                       {it.tree_type_name}
                       {it.species_name ? ` · ${it.species_name}` : ''}
                       {it.sku_code ? ` · ${it.sku_code}` : ''}
+                      {hasBreaks ? ' · volume pricing' : ''}
                     </div>
                   </div>
-                  <div className="w-24 text-right text-sm tabular-nums">{money(price)}</div>
+                  <div className="w-24 text-right text-sm tabular-nums">
+                    {money(price)}
+                    {discounted && (
+                      <span className="block text-[11px] text-ink-muted line-through">{money(it.list_price)}</span>
+                    )}
+                  </div>
                   <input
                     type="number"
                     min={0}
@@ -170,15 +244,68 @@ export default function OrderPage() {
                 {lines.map((it) => (
                   <li key={it.stock_item_id} className="flex justify-between gap-3">
                     <span className="text-ink-muted truncate">{qty[it.stock_item_id]} × {itemLabel(it)}</span>
-                    <span className="tabular-nums">{money(Number(it.website_price) * qty[it.stock_item_id])}</span>
+                    <span className="tabular-nums">{money(unitPriceFor(it, qty[it.stock_item_id]) * qty[it.stock_item_id])}</span>
                   </li>
                 ))}
               </ul>
             )}
 
-            <div className="mt-4 border-t border-stone-200 pt-4 flex justify-between text-sm font-medium">
-              <span>{totalTrees} tree{totalTrees === 1 ? '' : 's'}</span>
-              <span className="tabular-nums">{money(total)}</span>
+            <div className="mt-4 border-t border-stone-200 pt-4 space-y-1.5 text-sm">
+              <div className="flex justify-between text-ink-muted">
+                <span>{totalTrees} tree{totalTrees === 1 ? '' : 's'}</span>
+                <span className="tabular-nums">{money(total)}</span>
+              </div>
+              {fulfilment === 'delivery' && (
+                <div className="flex justify-between text-ink-muted">
+                  <span>Delivery{quoting ? '…' : ''}</span>
+                  <span className="tabular-nums">{deliveryUnavailable ? '—' : money(deliveryFee)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-medium border-t border-stone-100 pt-1.5">
+                <span>Total</span>
+                <span className="tabular-nums">{money(grandTotal)}</span>
+              </div>
+            </div>
+
+            {/* Fulfilment */}
+            <div className="mt-5">
+              <span className="block text-xs text-ink-muted mb-1.5">Fulfilment</span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFulfilment('pickup')}
+                  className={`flex-1 rounded-sm border px-3 py-2 text-sm transition-colors ${fulfilment === 'pickup' ? 'border-accent-700 bg-accent-50 text-accent-800' : 'border-stone-300 text-ink-muted hover:border-stone-400'}`}
+                >
+                  Pickup (free)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFulfilment('delivery')}
+                  className={`flex-1 rounded-sm border px-3 py-2 text-sm transition-colors ${fulfilment === 'delivery' ? 'border-accent-700 bg-accent-50 text-accent-800' : 'border-stone-300 text-ink-muted hover:border-stone-400'}`}
+                >
+                  Delivery
+                </button>
+              </div>
+              {fulfilment === 'delivery' && (
+                <div className="mt-3 space-y-2">
+                  <input
+                    value={postcode}
+                    onChange={(e) => setPostcode(e.target.value)}
+                    placeholder="Delivery postcode"
+                    className="w-full rounded-sm border border-stone-300 px-2 py-1.5 text-sm focus:border-accent-700 focus:outline-none"
+                  />
+                  <textarea
+                    rows={2}
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Delivery address"
+                    className="w-full rounded-sm border border-stone-300 px-2 py-1.5 text-sm focus:border-accent-700 focus:outline-none"
+                  />
+                  {deliveryUnavailable && (
+                    <p className="text-xs text-red-700">Delivery isn't available to that postcode — please choose pickup or contact us.</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <label className="mt-5 block">
@@ -204,7 +331,11 @@ export default function OrderPage() {
 
             <button
               type="button"
-              disabled={lines.length === 0 || submitting}
+              disabled={
+                lines.length === 0 ||
+                submitting ||
+                (fulfilment === 'delivery' && (postcode.trim().length < 3 || deliveryUnavailable || quoting))
+              }
               onClick={submit}
               className="mt-4 w-full rounded-sm bg-accent-700 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-800 disabled:opacity-50"
             >
