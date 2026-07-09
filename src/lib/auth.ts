@@ -44,6 +44,8 @@ export async function login(email: string, password: string): Promise<CurrentUse
   return data.user;
 }
 
+export type CustomerType = 'grower' | 'garden_centre' | 'retail';
+
 export interface RegisterPayload {
   email: string;
   password: string;
@@ -51,6 +53,7 @@ export interface RegisterPayload {
   contact_name?: string;
   phone?: string;
   customer_number?: string;
+  customer_type?: CustomerType;
 }
 
 export async function registerCustomer(payload: RegisterPayload): Promise<CurrentUser> {
