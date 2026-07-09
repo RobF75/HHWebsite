@@ -56,6 +56,25 @@ export interface RegisterPayload {
   customer_type?: CustomerType;
 }
 
+export interface CustomerLookupResult {
+  matched: boolean;
+  business_name?: string;
+  contact_first_name?: string;
+}
+
+// Pre-signup lookup: confirm an existing customer number + email against the
+// legacy records. Returns { matched:false } when nothing matches (or the bridge
+// is unconfigured); throws on transport / rate-limit errors so the caller can
+// show a retry message. Unauthenticated by design (runs before an account exists).
+export async function lookupCustomer(customerNumber: string, email: string): Promise<CustomerLookupResult> {
+  const res = await fetch(`${API_BASE}/auth/customer-lookup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ customer_number: customerNumber, email }),
+  });
+  return parse<CustomerLookupResult>(res);
+}
+
 export async function registerCustomer(payload: RegisterPayload): Promise<CurrentUser> {
   const res = await fetch(`${API_BASE}/auth/register-customer`, {
     method: 'POST',

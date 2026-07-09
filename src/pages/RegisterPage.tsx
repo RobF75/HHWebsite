@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import type { CustomerType } from '../lib/auth';
+import { lookupCustomer, type CustomerType } from '../lib/auth';
 
 const TYPE_OPTIONS: { value: CustomerType; title: string; blurb: string }[] = [
   {
@@ -39,8 +39,45 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Legacy customer-number lookup (grower / garden-centre only).
+  const [lookupState, setLookupState] = useState<'idle' | 'loading' | 'matched' | 'nomatch' | 'error'>('idle');
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [matchedName, setMatchedName] = useState<string | null>(null);
+
   function set<K extends keyof typeof form>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+    // Any change to the lookup inputs invalidates a previous match.
+    if (key === 'customer_number' || key === 'email') {
+      setLookupState('idle');
+      setLookupError(null);
+      setMatchedName(null);
+    }
+  }
+
+  async function onLookup() {
+    const custNo = form.customer_number.trim();
+    const em = form.email.trim();
+    if (!custNo || !em) return;
+    setLookupState('loading');
+    setLookupError(null);
+    try {
+      const r = await lookupCustomer(custNo, em);
+      if (r.matched) {
+        setLookupState('matched');
+        setMatchedName(r.business_name || null);
+        // Prefill from the record, but never clobber what the customer already typed.
+        setForm((f) => ({
+          ...f,
+          business_name: f.business_name.trim() ? f.business_name : (r.business_name || ''),
+          contact_name: f.contact_name.trim() ? f.contact_name : (r.contact_first_name || ''),
+        }));
+      } else {
+        setLookupState('nomatch');
+      }
+    } catch (e) {
+      setLookupState('error');
+      setLookupError(e instanceof Error ? e.message : 'Lookup failed');
+    }
   }
 
   async function onSubmit(e: FormEvent) {
@@ -151,10 +188,35 @@ export default function RegisterPage() {
           <span className="mt-1 block text-xs text-ink-muted">At least 8 characters.</span>
         </label>
         {trade && (
-          <label className="block">
-            <span className="block text-sm text-ink-muted mb-1">Existing customer number <span className="text-ink-muted/70">(optional)</span></span>
-            <input value={form.customer_number} onChange={(e) => set('customer_number', e.target.value)} className={fieldClass} />
-          </label>
+          <div className="space-y-2">
+            <label className="block">
+              <span className="block text-sm text-ink-muted mb-1">Existing customer number <span className="text-ink-muted/70">(optional)</span></span>
+              <input value={form.customer_number} onChange={(e) => set('customer_number', e.target.value)} className={fieldClass} />
+            </label>
+            <button
+              type="button"
+              onClick={onLookup}
+              disabled={lookupState === 'loading' || !form.customer_number.trim() || !form.email.trim()}
+              className="rounded-sm border border-accent-700 px-3 py-1.5 text-sm text-accent-700 transition-colors hover:bg-accent-50 disabled:opacity-50"
+            >
+              {lookupState === 'loading' ? 'Checking…' : 'Find my account'}
+            </button>
+            <span className="ml-2 text-xs text-ink-muted">Uses the email above to match your records.</span>
+            {lookupState === 'matched' && (
+              <div className="rounded-sm border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+                Found{matchedName ? `: ${matchedName}` : ''} — we'll connect your account to your records.
+              </div>
+            )}
+            {lookupState === 'nomatch' && (
+              <div className="rounded-sm border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                We couldn't match that customer number and email. Check they're correct, or create your account anyway
+                and we'll link it to your records manually.
+              </div>
+            )}
+            {lookupState === 'error' && (
+              <div className="rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{lookupError}</div>
+            )}
+          </div>
         )}
         <button
           type="submit"
