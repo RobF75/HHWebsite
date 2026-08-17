@@ -186,10 +186,11 @@ export default function TradeAccountPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <label className="block mb-3">
-                <span className="block text-xs text-ink-muted mb-1">ABN</span>
+                <span className="block text-xs text-ink-muted mb-1">ABN/ACN</span>
                 <input
                   value={abn}
                   onChange={(e) => setAbn(e.target.value)}
+                  placeholder="e.g. 12 345 678 901 or ACN 123 456 789"
                   className="w-full rounded-sm border border-stone-300 px-2 py-1.5 text-sm focus:border-accent-700 focus:outline-none"
                 />
               </label>
