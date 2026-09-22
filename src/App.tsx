@@ -4,6 +4,7 @@ import RequireAuth from './components/RequireAuth';
 import HomePage from './pages/HomePage';
 import SpeciesPage from './pages/SpeciesPage';
 import CultivarPage from './pages/CultivarPage';
+import HarvestCalendarPage from './pages/HarvestCalendarPage';
 import AboutPage from './pages/AboutPage';
 import ContactPage from './pages/ContactPage';
 import LoginPage from './pages/LoginPage';
@@ -26,6 +27,10 @@ export default function App() {
         <Route path="account/orders" element={<RequireAuth><MyOrdersPage /></RequireAuth>} />
         <Route path="account/trade" element={<RequireAuth><TradeAccountPage /></RequireAuth>} />
         <Route path="cultivar/:id" element={<CultivarPage />} />
+        {/* Must stay above :speciesSlug conceptually — a static segment outranks
+            a dynamic one in the router's own scoring, but leaving it below would
+            read as though "harvest-calendar" were a species. */}
+        <Route path="harvest-calendar" element={<HarvestCalendarPage />} />
         <Route path=":speciesSlug" element={<SpeciesPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

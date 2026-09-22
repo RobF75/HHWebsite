@@ -198,3 +198,86 @@ export interface TradeAccountRequestInput {
   delivery_address?: string;
   notes?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Harvest calendar — GET /api/public/maturity-chart
+// ---------------------------------------------------------------------------
+// Real recorded pick dates from cultivar_region_maturity, restricted server-side
+// to cultivars with show_on_website = TRUE. Distinct from the per-cultivar
+// "Seasonal calendar" component, which infers months from public attribute
+// names and knows nothing about regions or seasons.
+
+export type PublicMaturitySource = 'manual' | 'observed' | 'calculated';
+
+export interface PublicMaturityEntry {
+  cultivar_id: number;
+  cultivar_name: string | null;
+  crop_type_id: number | null;
+  crop_type_name: string | null;
+  /** Null when the crop type is itself top-level. */
+  crop_type_parent_id: number | null;
+  crop_type_parent_name: string | null;
+  growing_region_id: number;
+  region_name: string | null;
+  region_country: string | null;
+  season_year: number;
+  first_pick_date: string;
+  last_pick_date: string | null;
+  harvest_window_days: number | null;
+  source: PublicMaturitySource;
+  observation_count?: number;
+  /** Null for observed rows; 0..1 for calculated ones. */
+  confidence: number | null;
+  uncertainty_days: number;
+  derived_from_region_id?: number;
+  offset_days?: number;
+}
+
+export interface PublicMaturityRegionFacet {
+  id: number;
+  name: string;
+  country: string | null;
+  hemisphere: string | null;
+  record_count: number;
+}
+
+export interface PublicMaturityCropTypeFacet {
+  id: number;
+  name: string;
+  parent_id: number | null;
+  parent_name: string | null;
+  record_count: number;
+}
+
+/** What the filters may offer — only options with published data behind them. */
+export interface PublicMaturityFacets {
+  seasons: number[];
+  regions: PublicMaturityRegionFacet[];
+  crop_types: PublicMaturityCropTypeFacet[];
+}
+
+export interface PublicMaturityChart {
+  entries: PublicMaturityEntry[];
+  facets: PublicMaturityFacets;
+  season_index: unknown | null;
+  filters_applied: {
+    season_years: number[];
+    region_ids: number[] | null;
+    crop_type_ids: number[] | null;
+    from_date: string | null;
+    to_date: string | null;
+    include_estimates: boolean;
+    online_only: boolean;
+  };
+  truncated: boolean;
+  total_matched: number;
+}
+
+export interface PublicMaturityFilters {
+  seasonYears?: number[];
+  regionIds?: number[];
+  cropTypeIds?: number[];
+  fromDate?: string;
+  toDate?: string;
+  includeEstimates?: boolean;
+}

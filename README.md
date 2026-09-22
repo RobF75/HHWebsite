@@ -9,6 +9,9 @@ Static React/Vite SPA. Reads live cultivar data from the existing `hh-backend` C
 - Dynamic home page with featured cultivars and species categories
 - Per-species index pages (`/apples`, `/cherries`, …) generated automatically from any crop type that has at least one cultivar with `show_on_website = TRUE`
 - Cultivar detail page (`/cultivar/:id`) with editorial copy, hero image, seasonal calendar chart (derived from public attribute values), spec table, gallery
+- Harvest calendar (`/harvest-calendar`) — every published cultivar's picking window on one
+  timeline, coloured by crop type, filterable by crop, district, season and date. Real recorded
+  pick dates, not inferred from attribute names like the per-cultivar seasonal calendar above.
 - About + Contact
 
 ## Where the data comes from
@@ -19,6 +22,7 @@ Static React/Vite SPA. Reads live cultivar data from the existing `hh-backend` C
 | Species listing | `GET /api/public/cultivars?species=<slug>` |
 | Cultivar detail | `GET /api/public/cultivars/:id` |
 | Hero / gallery images | `GET /api/public/media/:id/file` |
+| Harvest calendar | `GET /api/public/maturity-chart` |
 
 A cultivar is exposed only if its owner has flipped **Publish to website** on the cultivar edit page in `tech.factree.com.au`. Media uses `cultivar_media.visibility = 'public'`; attribute fields use `cultivar_attribute_definitions.visibility_default = 'public'`.
 

@@ -2,8 +2,11 @@ import type {
   ApiEnvelope,
   PublicCultivarDetail,
   PublicCultivarSummary,
+  PublicMaturityChart,
+  PublicMaturityFilters,
   PublicSpecies,
 } from './types';
+import { maturityChartQuery } from './maturityChart';
 
 const RAW_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').trim();
 // Dev with Vite proxy: VITE_API_BASE_URL is empty, requests go to /api/public/...
@@ -35,6 +38,18 @@ export function listCultivars(speciesSlug?: string) {
 
 export function getCultivar(id: number) {
   return getJson<PublicCultivarDetail>(`/public/cultivars/${id}`);
+}
+
+/**
+ * The harvest calendar: recorded pick dates across regions and seasons.
+ *
+ * The endpoint restricts itself to cultivars published to this site; there is no
+ * parameter that widens it, and passing one is a 400. Omitting the season lets
+ * the server pick the most recent one with data, because every season drawn on
+ * one calendar axis reads as a single impossibly busy year.
+ */
+export function getMaturityChart(filters: PublicMaturityFilters = {}) {
+  return getJson<PublicMaturityChart>(`/public/maturity-chart${maturityChartQuery(filters)}`);
 }
 
 export function mediaUrl(mediaId: number | null | undefined): string | null {

@@ -200,6 +200,7 @@ function Header() {
               </NavLink>
             )
           )}
+          <NavLink to="/harvest-calendar" className={navLinkClass}>Harvest calendar</NavLink>
           <span className="h-4 w-px bg-stone-300" aria-hidden />
           <NavLink to="/about" className={navLinkClass}>About</NavLink>
           <NavLink to="/contact" className={navLinkClass}>Contact</NavLink>
@@ -241,6 +242,7 @@ function Header() {
                 </NavLink>
               )
             )}
+            <NavLink to="/harvest-calendar" className={navLinkClass}>Harvest calendar</NavLink>
             <hr className="border-stone-200" />
             <NavLink to="/about" className={navLinkClass}>About</NavLink>
             <NavLink to="/contact" className={navLinkClass}>Contact</NavLink>
@@ -278,6 +280,7 @@ function Footer() {
         <div>
           <h4 className="font-serif text-base mb-3">Company</h4>
           <ul className="space-y-2 text-sm">
+            <li><Link to="/harvest-calendar" className="text-ink-muted hover:text-ink">Harvest calendar</Link></li>
             <li><Link to="/about" className="text-ink-muted hover:text-ink">About</Link></li>
             <li><Link to="/contact" className="text-ink-muted hover:text-ink">Contact</Link></li>
             <li><a href="https://tech.factree.com.au" className="text-ink-muted hover:text-ink">Grower portal</a></li>
