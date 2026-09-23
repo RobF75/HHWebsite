@@ -24,6 +24,8 @@ export type HarvestGroupBy = 'crop_type' | 'region' | 'none';
 
 export interface HarvestFilterState {
   seasonYears: number[];
+  /** Every season with data, laid over one season's calendar. Overrides seasonYears. */
+  allSeasons: boolean;
   regionIds: number[];
   cropTypeIds: number[];
   fromDate: string;
@@ -34,6 +36,7 @@ export interface HarvestFilterState {
 
 export const EMPTY_HARVEST_FILTERS: HarvestFilterState = {
   seasonYears: [],
+  allSeasons: false,
   regionIds: [],
   cropTypeIds: [],
   fromDate: '',
@@ -49,7 +52,8 @@ export const EMPTY_HARVEST_FILTERS: HarvestFilterState = {
 /** Lists go over as `region_ids=3,7`, so a filtered calendar is a shareable URL. */
 export function maturityChartQuery(filters: PublicMaturityFilters): string {
   const params = new URLSearchParams();
-  if (filters.seasonYears?.length) params.set('season_years', filters.seasonYears.join(','));
+  if (filters.allSeasons) params.set('all_seasons', 'true');
+  else if (filters.seasonYears?.length) params.set('season_years', filters.seasonYears.join(','));
   if (filters.regionIds?.length) params.set('region_ids', filters.regionIds.join(','));
   if (filters.cropTypeIds?.length) params.set('crop_type_ids', filters.cropTypeIds.join(','));
   if (filters.fromDate) params.set('from_date', filters.fromDate);
@@ -198,27 +202,61 @@ export interface Axis {
   min: number;
   max: number;
   span: number;
+  /**
+   * Set when more than one season is in view: every date is moved onto this
+   * season's calendar before it is placed, so the same variety's years line up
+   * instead of stretching into a timeline several years wide.
+   */
+  foldToSeason: number | null;
 }
 
-/** The axis spans the data plus a few days, so an end bar is not flush to the edge. */
+/**
+ * Where an entry's bar ends: a recorded last pick, or the first pick plus a
+ * harvest window when only a start is known. The fallbacks cover a server that
+ * predates `window_end_date`.
+ */
+export function windowEnd(e: PublicMaturityEntry): string {
+  return e.window_end_date || e.last_pick_date || e.first_pick_date;
+}
+
+/** True when the bar's end was measured rather than assumed from a window length. */
+export function hasRecordedEnd(e: PublicMaturityEntry): boolean {
+  return e.window_source ? e.window_source === 'recorded' : !!e.last_pick_date;
+}
+
+/** A date moved by whole seasons onto `toSeason`'s calendar, keeping a Dec–Jan run in order. */
+function foldedUtc(dateStr: string, entrySeason: number, toSeason: number | null): number {
+  if (toSeason == null || toSeason === entrySeason) return toUtc(dateStr);
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return Date.UTC(y + (toSeason - entrySeason), m - 1, d);
+}
+
+/**
+ * The axis spans the data plus a few days, so an end bar is not flush to the edge.
+ * Seasons fold onto the most recent one whenever more than one is present.
+ */
 export function buildAxis(entries: PublicMaturityEntry[]): Axis | null {
   if (entries.length === 0) return null;
+  const seasons = new Set(entries.map((e) => e.season_year));
+  const foldToSeason = seasons.size > 1 ? Math.max(...seasons) : null;
+
   let min = Infinity;
   let max = -Infinity;
   for (const e of entries) {
-    const start = toUtc(e.first_pick_date);
-    const end = toUtc(e.last_pick_date || e.first_pick_date);
+    const start = foldedUtc(e.first_pick_date, e.season_year, foldToSeason);
+    const end = foldedUtc(windowEnd(e), e.season_year, foldToSeason);
     if (start < min) min = start;
     if (end > max) max = end;
   }
   min -= 3 * MS_PER_DAY;
   max += 3 * MS_PER_DAY;
-  return { min, max, span: Math.max(max - min, MS_PER_DAY) };
+  return { min, max, span: Math.max(max - min, MS_PER_DAY), foldToSeason };
 }
 
-/** Where a date sits on the axis, 0–100. */
-export function axisPercent(axis: Axis, dateStr: string): number {
-  return ((toUtc(dateStr) - axis.min) / axis.span) * 100;
+/** Where a date sits on the axis, 0–100. Pass the entry's season so a folded axis can move it. */
+export function axisPercent(axis: Axis, dateStr: string, seasonYear?: number): number {
+  const t = seasonYear == null ? toUtc(dateStr) : foldedUtc(dateStr, seasonYear, axis.foldToSeason);
+  return ((t - axis.min) / axis.span) * 100;
 }
 
 /** A span of N days as a percentage of the axis — for uncertainty bands. */
@@ -242,7 +280,9 @@ export interface Gridline {
 export function buildGridlines(axis: Axis | null): Gridline[] {
   if (!axis) return [];
   const lines: Gridline[] = [];
-  const spansYears = new Date(axis.min).getUTCFullYear() !== new Date(axis.max).getUTCFullYear();
+  // A folded axis is a season's calendar, not a particular year's.
+  const spansYears = axis.foldToSeason == null
+    && new Date(axis.min).getUTCFullYear() !== new Date(axis.max).getUTCFullYear();
   let y = new Date(axis.min).getUTCFullYear();
   let m = new Date(axis.min).getUTCMonth();
 

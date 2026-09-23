@@ -2,8 +2,8 @@ import { Fragment, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import type { PublicMaturityEntry } from '../lib/types';
 import {
-  axisPercent, buildAxis, buildGridlines, colourKeyFor, daysPercent,
-  rootCropType, shortDate, shortDateWithYear, UNCLASSIFIED_CROP_TYPE_ID,
+  axisPercent, buildAxis, buildGridlines, colourKeyFor, daysPercent, hasRecordedEnd,
+  rootCropType, shortDate, shortDateWithYear, UNCLASSIFIED_CROP_TYPE_ID, windowEnd,
   type CropTypeColourKey, type HarvestGroupBy,
 } from '../lib/maturityChart';
 
@@ -69,9 +69,11 @@ export default function HarvestTimeline({
   const renderBar = (e: PublicMaturityEntry) => {
     const isCalculated = e.source === 'calculated';
     const key = colourKeyFor(e, colours);
-    const left = axisPercent(axis, e.first_pick_date);
-    const right = e.last_pick_date ? axisPercent(axis, e.last_pick_date) : left;
-    // A single-date entry still needs a visible mark.
+    const end = windowEnd(e);
+    const measuredEnd = hasRecordedEnd(e);
+    const left = axisPercent(axis, e.first_pick_date, e.season_year);
+    const right = axisPercent(axis, end, e.season_year);
+    // A same-day window still needs a visible mark.
     const width = Math.max(right - left, 1.5);
     const root = rootCropType(e);
 
@@ -81,7 +83,13 @@ export default function HarvestTimeline({
       `· ${e.region_name ?? `Region ${e.growing_region_id}`}`,
       isCalculated
         ? `\nEstimated ${shortDateWithYear(e.first_pick_date)} ±${e.uncertainty_days} days`
-        : `\n${shortDateWithYear(e.first_pick_date)}${e.last_pick_date ? ` – ${shortDateWithYear(e.last_pick_date)}` : ''}`,
+        : `\n${shortDateWithYear(e.first_pick_date)} – ${shortDateWithYear(end)}`,
+      showSeason ? `\nSeason ${e.season_year}` : null,
+      !isCalculated && !measuredEnd
+        ? `\nPicking starts on the recorded date; the end is based on ${
+          e.window_source === 'default' ? 'a typical' : 'this variety’s usual'
+        } harvest window${e.window_days != null ? ` of ${e.window_days} days` : ''}`
+        : null,
     ].filter(Boolean).join(' ');
 
     return (
@@ -129,7 +137,14 @@ export default function HarvestTimeline({
                   backgroundColor: 'transparent',
                   border: `1.5px dashed ${key.colour}`,
                 }
-                : { backgroundColor: key.colour }),
+                : measuredEnd
+                  ? { backgroundColor: key.colour }
+                  : {
+                    // A recorded start with an assumed length: a solid cap on
+                    // the start date, then a tint for the window after it.
+                    backgroundColor: `${key.colour}55`,
+                    borderLeft: `4px solid ${key.colour}`,
+                  }),
             }}
           />
         </div>
@@ -188,12 +203,14 @@ export default function HarvestTimeline({
  * that.
  */
 export function HarvestLegend({
-  colours, counts, selected, onToggle,
+  colours, counts, selected, onToggle, onShowAll,
 }: {
   colours: Map<number, CropTypeColourKey>;
   counts: Map<number, number>;
   selected: Set<number>;
   onToggle: (cropTypeId: number) => void;
+  /** Clears the crop filter in one click. */
+  onShowAll?: () => void;
 }) {
   // Every crop type in the dataset, not only those currently drawn — these
   // chips are the filter, so a deselected one must stay on screen to be
@@ -207,6 +224,20 @@ export function HarvestLegend({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {onShowAll && (
+        <button
+          type="button"
+          onClick={onShowAll}
+          aria-pressed={!anySelected}
+          className={`rounded-sm border px-3 py-1.5 text-sm transition-colors ${
+            !anySelected
+              ? 'border-ink bg-ink text-stone-50'
+              : 'border-stone-200 bg-white text-ink-muted hover:text-ink'
+          }`}
+        >
+          All crops
+        </button>
+      )}
       {shown.map((k) => {
         const on = !anySelected || selected.has(k.id);
         return (
@@ -236,8 +267,15 @@ export function HarvestLegend({
 
 /** What the two bar styles mean. Sits under the chart. */
 export function HarvestChartKey({
-  recordedCount, calculatedCount,
-}: { recordedCount: number; calculatedCount: number }) {
+  recordedCount, calculatedCount, assumedWindowCount = 0, seasonCount = 0,
+}: {
+  recordedCount: number;
+  calculatedCount: number;
+  /** Recorded entries whose end comes from a harvest window, not a last pick. */
+  assumedWindowCount?: number;
+  /** Seasons in view; more than one are laid over one calendar. */
+  seasonCount?: number;
+}) {
   return (
     <div className="text-sm text-ink-muted space-y-2">
       <div className="flex items-center gap-5 flex-wrap">
@@ -245,6 +283,12 @@ export function HarvestChartKey({
           <span className="inline-block w-5 h-2.5 rounded-sm bg-stone-500" />
           Recorded pick
         </span>
+        {assumedWindowCount > 0 && (
+          <span className="flex items-center gap-2">
+            <span className="inline-block w-5 h-2.5 rounded-sm bg-stone-500/35 border-l-4 border-stone-500" />
+            Start date + usual harvest window
+          </span>
+        )}
         {calculatedCount > 0 && (
           <span className="flex items-center gap-2">
             <span className="inline-block w-5 h-2.5 rounded-sm border-[1.5px] border-dashed border-stone-500" />
@@ -256,6 +300,18 @@ export function HarvestChartKey({
           {calculatedCount > 0 && `, ${calculatedCount} estimated`}
         </span>
       </div>
+      {assumedWindowCount > 0 && (
+        <p className="max-w-3xl leading-relaxed">
+          A lighter bar has a recorded start of picking but no recorded finish. It runs for the
+          variety’s usual harvest window, or a typical window where none is known.
+        </p>
+      )}
+      {seasonCount > 1 && (
+        <p className="max-w-3xl leading-relaxed">
+          {seasonCount} seasons are laid over one calendar so they can be compared; each row names
+          its season.
+        </p>
+      )}
       {calculatedCount > 0 && (
         <p className="max-w-3xl leading-relaxed">
           * An estimated entry has no recorded pick in that district. It is worked out from the

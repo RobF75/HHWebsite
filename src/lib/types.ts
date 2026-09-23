@@ -209,6 +209,13 @@ export interface TradeAccountRequestInput {
 
 export type PublicMaturitySource = 'manual' | 'observed' | 'calculated';
 
+/**
+ * What a pick window's end rests on: a recorded last pick, a window length on
+ * the record, the cultivar's usual harvest window, or the server's default.
+ * Only 'recorded' is a measured end.
+ */
+export type PickWindowSource = 'recorded' | 'record' | 'cultivar' | 'default';
+
 export interface PublicMaturityEntry {
   cultivar_id: number;
   cultivar_name: string | null;
@@ -224,6 +231,13 @@ export interface PublicMaturityEntry {
   first_pick_date: string;
   last_pick_date: string | null;
   harvest_window_days: number | null;
+  /**
+   * Where the bar ends. A single maturity reading is only a start, so the
+   * server fills the end from the harvest window and says so in window_source.
+   */
+  window_end_date?: string;
+  window_days?: number;
+  window_source?: PickWindowSource;
   source: PublicMaturitySource;
   observation_count?: number;
   /** Null for observed rows; 0..1 for calculated ones. */
@@ -262,6 +276,7 @@ export interface PublicMaturityChart {
   season_index: unknown | null;
   filters_applied: {
     season_years: number[];
+    all_seasons?: boolean;
     region_ids: number[] | null;
     crop_type_ids: number[] | null;
     from_date: string | null;
@@ -275,6 +290,8 @@ export interface PublicMaturityChart {
 
 export interface PublicMaturityFilters {
   seasonYears?: number[];
+  /** Every season with data; overrides seasonYears. */
+  allSeasons?: boolean;
   regionIds?: number[];
   cropTypeIds?: number[];
   fromDate?: string;

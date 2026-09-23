@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getMaturityChart } from '../lib/api';
 import {
-  buildCropTypeColours, colourKeyFor, EMPTY_HARVEST_FILTERS,
+  buildCropTypeColours, colourKeyFor, EMPTY_HARVEST_FILTERS, hasRecordedEnd,
   type HarvestFilterState, type HarvestGroupBy,
 } from '../lib/maturityChart';
 import type { PublicMaturityChart } from '../lib/types';
@@ -57,6 +57,7 @@ export default function HarvestCalendarPage() {
 
   const [filters, setFilters] = useState<HarvestFilterState>(() => ({
     seasonYears: parseIds(searchParams.get('seasons')),
+    allSeasons: searchParams.get('seasons') === 'all',
     regionIds: parseIds(searchParams.get('regions')),
     cropTypeIds: parseIds(searchParams.get('crops')),
     fromDate: searchParams.get('from') || '',
@@ -77,6 +78,7 @@ export default function HarvestCalendarPage() {
     setError(null);
     getMaturityChart({
       seasonYears: filters.seasonYears,
+      allSeasons: filters.allSeasons,
       regionIds: filters.regionIds,
       cropTypeIds: filters.cropTypeIds,
       fromDate: filters.fromDate || undefined,
@@ -96,7 +98,8 @@ export default function HarvestCalendarPage() {
   // Keep the URL in step so a filtered calendar can be linked to.
   useEffect(() => {
     const params = new URLSearchParams();
-    if (filters.seasonYears.length) params.set('seasons', filters.seasonYears.join(','));
+    if (filters.allSeasons) params.set('seasons', 'all');
+    else if (filters.seasonYears.length) params.set('seasons', filters.seasonYears.join(','));
     if (filters.regionIds.length) params.set('regions', filters.regionIds.join(','));
     if (filters.cropTypeIds.length) params.set('crops', filters.cropTypeIds.join(','));
     if (filters.fromDate) params.set('from', filters.fromDate);
@@ -126,7 +129,11 @@ export default function HarvestCalendarPage() {
   const recordedCount = entries.filter((e) => e.source !== 'calculated').length;
   const calculatedCount = entries.length - recordedCount;
   const showRegion = new Set(entries.map((e) => e.growing_region_id)).size > 1;
-  const showSeason = new Set(entries.map((e) => e.season_year)).size > 1;
+  const seasonCount = new Set(entries.map((e) => e.season_year)).size;
+  const showSeason = seasonCount > 1;
+  const assumedWindowCount = entries.filter(
+    (e) => e.source !== 'calculated' && !hasRecordedEnd(e)
+  ).length;
 
   const facets = chart?.facets ?? { seasons: [], regions: [], crop_types: [] };
   // With no explicit pick the server chose a season for us; showing it as
@@ -137,7 +144,7 @@ export default function HarvestCalendarPage() {
     : (chart?.filters_applied.season_years ?? []);
 
   const dirty =
-    filters.seasonYears.length > 0 || filters.regionIds.length > 0 ||
+    filters.seasonYears.length > 0 || filters.allSeasons || filters.regionIds.length > 0 ||
     filters.cropTypeIds.length > 0 || filters.fromDate !== '' || filters.toDate !== '' ||
     !filters.includeEstimates;
 
@@ -169,11 +176,22 @@ export default function HarvestCalendarPage() {
               )}
             </div>
             <div className="flex flex-wrap gap-2">
+              {facets.seasons.length > 1 && (
+                <Chip
+                  active={filters.allSeasons}
+                  onClick={() => set({ allSeasons: !filters.allSeasons, seasonYears: [] })}
+                >
+                  All seasons
+                </Chip>
+              )}
               {facets.seasons.map((y) => (
                 <Chip
                   key={y}
-                  active={shownSeasons.includes(y)}
-                  onClick={() => set({ seasonYears: toggle(filters.seasonYears, y) })}
+                  active={filters.allSeasons || shownSeasons.includes(y)}
+                  onClick={() => set({
+                    allSeasons: false,
+                    seasonYears: filters.allSeasons ? [y] : toggle(filters.seasonYears, y),
+                  })}
                 >
                   {y}
                 </Chip>
@@ -209,6 +227,7 @@ export default function HarvestCalendarPage() {
               counts={counts}
               selected={new Set(filters.cropTypeIds)}
               onToggle={(id) => set({ cropTypeIds: toggle(filters.cropTypeIds, id) })}
+              onShowAll={() => set({ cropTypeIds: [] })}
             />
           </div>
         )}
@@ -290,7 +309,12 @@ export default function HarvestCalendarPage() {
                 season, district or crop to see the rest.
               </p>
             )}
-            <HarvestChartKey recordedCount={recordedCount} calculatedCount={calculatedCount} />
+            <HarvestChartKey
+              recordedCount={recordedCount}
+              calculatedCount={calculatedCount}
+              assumedWindowCount={assumedWindowCount}
+              seasonCount={seasonCount}
+            />
           </>
         )}
       </div>
