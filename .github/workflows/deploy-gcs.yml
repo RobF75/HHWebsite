@@ -66,7 +66,7 @@ jobs:
           node-version: 24
       # npm install (not npm ci) to match the self-hosted dev workflow.
       - run: npm install
-      - run: npx tsc --noEmit
+      - run: npx tsc -b --force
       - run: npx eslint .
 
   build-and-deploy:

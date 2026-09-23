@@ -6,8 +6,8 @@
   "description": "Public marketing website for Factree Nursery — pulls live cultivar data from hh-backend via /api/public/*.",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "type-check": "tsc --noEmit",
+    "build": "tsc -b && vite build",
+    "type-check": "tsc -b --force",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -17,6 +17,7 @@
     "react-router-dom": "^7.0.0"
   },
   "devDependencies": {
+    "@types/node": "^22.20.4",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.0",
