@@ -1,0 +1,2 @@
+# Hooks run under bash; CRLF (core.autocrlf=true) breaks them.
+.githooks/* text eol=lf

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Tracked pre-push hook. Enabled per clone with
+#   git config core.hooksPath .githooks
+# (C:\HHNode\dev\setup.ps1 does this on the workstation).
+#
+# This is the gate. The dev deploy (push to main) no longer type-checks or
+# lints on the runner, so a push that gets past here is deployed as-is. The
+# prod deploy (deploy-gcs.yml) still does both.
+
+set -e
+cd "$(git rev-parse --show-toplevel)"
+echo "[pre-push] npm run verify"
+npm run --silent verify

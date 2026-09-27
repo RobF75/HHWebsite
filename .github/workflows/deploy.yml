@@ -54,14 +54,9 @@ jobs:
         with:
           node-version: 24
 
-      - name: Install dependencies (workspace)
-        run: npm install
-
-      - name: Type check
-        run: npx tsc -b --force
-
-      - name: Lint
-        run: npx eslint .
+      # No type-check / lint here: `npm run verify` runs locally in the tracked
+      # pre-push hook (.githooks/pre-push). The prod deploy (deploy-gcs.yml)
+      # still does both.
 
       - name: Resolve shared PM2 home
         shell: pwsh
