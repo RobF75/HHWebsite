@@ -8,7 +8,8 @@ name: Deploy Website to GCS (production)
 #   gh workflow run deploy-gcs.yml -f confirm=deploy
 #
 # What this does:
-#   1. Type-check + lint (matches HHjsFrontEnd checks job).
+#   1. Gate: refuse unless dev's `verify` job passed for this commit (no
+#      checks re-run here; `npm run build` still type-checks as it builds).
 #   2. Build the SPA with VITE_API_BASE_URL=${{ secrets.BACKEND_URL }}/api.
 #      BACKEND_URL is the same secret used by HHjsFrontEnd — points at
 #      https://api.factree.com.au in prod.
@@ -55,22 +56,45 @@ jobs:
             exit 1
           fi
 
-  checks:
+  # Prod runs no checks of its own. It ships only a commit the dev runner has
+  # already verified: deploy.yml's `verify` job (type-check + lint) must be
+  # green for this exact SHA. Commits made by CI (github-actions[bot]) are
+  # skipped back to the commit they sit on.
+  gate:
     needs: guard
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
         with:
-          node-version: 24
-      # npm install (not npm ci) to match the self-hosted dev workflow.
-      - run: npm install
-      - run: npx tsc -b --force
-      - run: npx eslint .
+          fetch-depth: 20
+      - name: Require a green dev verify for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          target=$(git log --first-parent -n 20 --format='%H %ae' | awk '$2 !~ /github-actions\[bot\]/ { print $1; exit }')
+          if [ -z "$target" ]; then
+            echo "::error::No human-authored commit in the last 20 on this ref."
+            exit 1
+          fi
+          if [ "$target" != "$GITHUB_SHA" ]; then
+            echo "HEAD $GITHUB_SHA was made by CI; checking the commit it sits on: $target"
+          fi
+          for id in $(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/deploy.yml/runs?head_sha=$target&per_page=20" --jq '.workflow_runs[].id'); do
+            if gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs" --jq '.jobs[] | select(.name == "verify") | .conclusion' | grep -qx success; then
+              echo "Dev verify passed for $target (run $id)"
+              exit 0
+            fi
+          done
+          echo "::error::$target has no green dev verify (deploy.yml, job 'verify'). Wait for the dev run on main to go green, or push a fix, then deploy again."
+          exit 1
 
   build-and-deploy:
-    needs: checks
+    needs: gate
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

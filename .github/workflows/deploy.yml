@@ -22,41 +22,60 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  # The one place checks run. Every push to main goes through this before dev
+  # is touched; the prod deploy (deploy-gcs.yml) runs no checks of its own and
+  # refuses any commit whose `verify` job here isn't green. Don't rename this
+  # job without updating that `gate` job.
+  verify:
     runs-on: [self-hosted, windows]
     timeout-minutes: 15
 
     steps:
+      # clean: false + the git clean below keeps node_modules between runs.
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          clean: true
+          clean: false
 
-      - name: Configure git safe directories
+      - name: Remove stale files (keep node_modules)
         shell: pwsh
         run: |
           git config --global --add safe.directory "${{ github.workspace }}"
-          $safePath = ($env:DEPLOY_PATH -replace '\\', '/')
-          git config --global --add safe.directory "$safePath"
-
-      - name: Verify checkout SHA
-        shell: pwsh
-        run: |
+          git clean -ffdx -e node_modules
           $head = git rev-parse HEAD
           if ($head -ne "${{ github.sha }}") {
             Write-Error "Checkout SHA mismatch: expected ${{ github.sha }}, got $head"
             exit 1
           }
-          Write-Host "Checkout verified: $head"
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 24
 
-      # No type-check / lint here: `npm run verify` runs locally in the tracked
-      # pre-push hook (.githooks/pre-push). The prod deploy (deploy-gcs.yml)
-      # still does both.
+      - name: Install dependencies
+        run: npm install
+
+      # Type-check + lint, concurrently (scripts/verify.mjs).
+      - name: Verify
+        run: npm run verify
+
+  deploy:
+    needs: verify
+    runs-on: [self-hosted, windows]
+    timeout-minutes: 15
+
+    steps:
+      - name: Configure git safe directories
+        shell: pwsh
+        run: |
+          $safePath = ($env:DEPLOY_PATH -replace '\\', '/')
+          git config --global --add safe.directory "$safePath"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
 
       - name: Resolve shared PM2 home
         shell: pwsh
@@ -112,7 +131,8 @@ jobs:
           }
           cd $env:DEPLOY_PATH
           git fetch origin main
-          git reset --hard origin/main
+          # The verified commit, not whatever origin/main is by now.
+          git reset --hard ${{ github.sha }}
           Write-Host "Deployed: $(git rev-parse HEAD)"
 
       - name: Ensure .env.local exists
