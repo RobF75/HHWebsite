@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { getCatalog, getMyAddresses, placeOrder, quoteDelivery } from '../lib/storefront';
+import { getCatalog, getMyAddresses, placeOrder, quoteDelivery, saveMyAddress } from '../lib/storefront';
 import type { DeliveryQuote, SavedAddress } from '../lib/storefront';
 import type { CatalogItem } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
@@ -32,6 +32,53 @@ function unitPriceFor(it: CatalogItem, qty: number): number {
   return it.unit_price;
 }
 
+const AU_STATES = ['VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'];
+
+const FIELD = 'w-full rounded-sm border border-stone-300 px-2 py-1.5 text-sm focus:border-accent-700 focus:outline-none';
+
+// Same alphabet and shape the server checks: 4RJ7+2V, 4RJ74RJ7+2V, or a short
+// code followed by a locality.
+const PLUS_CODE = /^[2-9CFGHJMPQRVWX]{2,8}\+[2-9CFGHJMPQRVWX]{0,3}(?:[\s,]+.+)?$/i;
+
+interface AddressDraft {
+  label: string;
+  line1: string;
+  line2: string;
+  suburb: string;
+  state: string;
+  plus_code: string;
+  instructions: string;
+}
+
+const EMPTY_DRAFT: AddressDraft = { label: '', line1: '', line2: '', suburb: '', state: 'VIC', plus_code: '', instructions: '' };
+
+const draftHasContent = (d: AddressDraft) =>
+  [d.line1, d.line2, d.suburb, d.plus_code, d.instructions].some((v) => v.trim());
+
+/** Why a typed address can't be ordered against yet, or null. Mirrors the server's save rules. */
+function checkDraft(d: AddressDraft, postcode: string): string | null {
+  if (!d.line1.trim() && !d.plus_code.trim()) return 'Enter a street address or a plus code.';
+  if (!d.suburb.trim()) return 'Enter the suburb or town.';
+  if (!/^\d{4}$/.test(postcode.trim())) return 'Enter a 4-digit postcode.';
+  if (d.plus_code.trim() && !PLUS_CODE.test(d.plus_code.trim())) return 'That plus code doesn’t look right — it looks like 4RJ7+2V.';
+  return null;
+}
+
+/**
+ * The order's delivery-address text for an address that is not being saved.
+ * A saved one gets this text from the server (orderAddressText in
+ * HHNodeServer/src/utils/nurseryAddress.js); keep the two alike.
+ */
+function draftOrderText(d: AddressDraft, postcode: string): string {
+  const locality = [d.suburb, d.state, postcode].map((v) => v.trim()).filter(Boolean).join(' ');
+  const plus = d.plus_code.trim().toUpperCase();
+  const first = [d.line1.trim() ? '' : plus, d.line1, d.line2, locality].map((v) => v.trim()).filter(Boolean).join(', ');
+  const lines = [first];
+  if (plus && d.line1.trim()) lines.push(`Plus code: ${plus}`);
+  if (d.instructions.trim()) lines.push(`Instructions: ${d.instructions.trim()}`);
+  return lines.join('\n');
+}
+
 export default function OrderPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -51,14 +98,16 @@ export default function OrderPage() {
 
   // Fulfilment
   const [fulfilment, setFulfilment] = useState<'pickup' | 'delivery'>('pickup');
+  // Drives the delivery quote, whichever way the address was chosen.
   const [postcode, setPostcode] = useState('');
-  const [address, setAddress] = useState('');
   const [quotes, setQuotes] = useState<DeliveryQuote[]>([]);
   const [quoting, setQuoting] = useState(false);
 
   // Addresses the buyer's nurseries already hold. '' = typing a new one.
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [savedId, setSavedId] = useState<string>('');
+  const [draft, setDraft] = useState<AddressDraft>(EMPTY_DRAFT);
+  const [saveAddress, setSaveAddress] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,27 +117,30 @@ export default function OrderPage() {
     return () => { cancelled = true; };
   }, []);
 
+  const selectedSaved = savedAddresses.find((a) => String(a.id) === savedId) ?? null;
+
   function chooseSaved(id: string) {
     setSavedId(id);
     const a = savedAddresses.find((x) => String(x.id) === id);
-    if (a) {
-      setPostcode(a.postcode ?? '');
-      setAddress(a.order_text);
-    } else {
-      setPostcode('');
-      setAddress('');
-    }
+    setPostcode(a ? a.postcode ?? '' : '');
+    if (!a) setDraft(EMPTY_DRAFT);
+  }
+
+  function editDraft(patch: Partial<AddressDraft>) {
+    setDraft((d) => ({ ...d, ...patch }));
   }
 
   function chooseFulfilment(method: 'pickup' | 'delivery') {
     setFulfilment(method);
     // First switch to delivery with nothing typed: start on the default
     // saved address rather than an empty form.
-    if (method === 'delivery' && !savedId && !postcode.trim() && !address.trim()) {
+    if (method === 'delivery' && !savedId && !postcode.trim() && !draftHasContent(draft)) {
       const def = savedAddresses.find((a) => a.is_default) ?? savedAddresses[0];
       if (def) chooseSaved(String(def.id));
     }
   }
+
+  const draftProblem = fulfilment === 'delivery' && !selectedSaved ? checkDraft(draft, postcode) : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -167,13 +219,40 @@ export default function OrderPage() {
     setSubmitError(null);
     setSubmitting(true);
     try {
+      let deliveryAddress: string | undefined;
+      if (fulfilment === 'delivery') {
+        if (selectedSaved) {
+          deliveryAddress = selectedSaved.order_text;
+        } else if (saveAddress) {
+          // Save first, so the order carries exactly what was saved. A failure
+          // stops here rather than quietly ordering without saving.
+          let saved: SavedAddress;
+          try {
+            ({ address: saved } = await saveMyAddress({
+              stock_item_ids: lines.map((it) => it.stock_item_id),
+              address: { ...draft, postcode: postcode.trim() },
+            }));
+          } catch (err) {
+            const why = err instanceof Error ? err.message : 'unknown error';
+            setSubmitError(`Couldn't save the address: ${why}. Untick “Save this address” to order without saving it.`);
+            return;
+          }
+          // Select it, so a retry after a failed order does not save it again.
+          setSavedAddresses((list) => (list.some((a) => a.id === saved.id) ? list : [...list, saved]));
+          setSavedId(String(saved.id));
+          setSaveAddress(false);
+          deliveryAddress = saved.order_text;
+        } else {
+          deliveryAddress = draftOrderText(draft, postcode);
+        }
+      }
       const result = await placeOrder({
         lines: lines.map((it) => ({ stock_item_id: it.stock_item_id, quantity_ordered: qty[it.stock_item_id] })),
         notes: notes.trim() || undefined,
         requested_delivery_date: deliveryDate || undefined,
         fulfilment_method: fulfilment,
         delivery_postcode: fulfilment === 'delivery' ? postcode.trim() : undefined,
-        delivery_address: fulfilment === 'delivery' ? address.trim() || undefined : undefined,
+        delivery_address: deliveryAddress || undefined,
       });
       // Retail: redirect to Stripe Checkout. Wholesale: straight to the orders page.
       if (result.checkout_url) {
@@ -339,19 +418,92 @@ export default function OrderPage() {
                       </select>
                     </label>
                   )}
-                  <input
-                    value={postcode}
-                    onChange={(e) => { setPostcode(e.target.value); setSavedId(''); }}
-                    placeholder="Delivery postcode"
-                    className="w-full rounded-sm border border-stone-300 px-2 py-1.5 text-sm focus:border-accent-700 focus:outline-none"
-                  />
-                  <textarea
-                    rows={savedId ? 4 : 2}
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Delivery address"
-                    className="w-full rounded-sm border border-stone-300 px-2 py-1.5 text-sm focus:border-accent-700 focus:outline-none"
-                  />
+                  {selectedSaved ? (
+                    <p className="whitespace-pre-line break-words rounded-sm border border-stone-200 bg-stone-50 px-2 py-1.5 text-sm text-ink-muted">
+                      {selectedSaved.order_text}
+                    </p>
+                  ) : (
+                    <>
+                      <input
+                        value={draft.line1}
+                        onChange={(e) => editDraft({ line1: e.target.value })}
+                        placeholder="Street address"
+                        autoComplete="address-line1"
+                        className={FIELD}
+                      />
+                      <input
+                        value={draft.line2}
+                        onChange={(e) => editDraft({ line2: e.target.value })}
+                        placeholder="Unit, shed or gate (optional)"
+                        autoComplete="address-line2"
+                        className={FIELD}
+                      />
+                      <input
+                        value={draft.suburb}
+                        onChange={(e) => editDraft({ suburb: e.target.value })}
+                        placeholder="Suburb or town"
+                        autoComplete="address-level2"
+                        className={FIELD}
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={draft.state}
+                          onChange={(e) => editDraft({ state: e.target.value })}
+                          autoComplete="address-level1"
+                          aria-label="State"
+                          className={`${FIELD} bg-white`}
+                        >
+                          {AU_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <input
+                          value={postcode}
+                          onChange={(e) => setPostcode(e.target.value)}
+                          placeholder="Postcode"
+                          inputMode="numeric"
+                          maxLength={4}
+                          autoComplete="postal-code"
+                          className={FIELD}
+                        />
+                      </div>
+                      <input
+                        value={draft.plus_code}
+                        onChange={(e) => editDraft({ plus_code: e.target.value })}
+                        placeholder="Google Maps plus code (optional)"
+                        className={`${FIELD} uppercase placeholder:normal-case`}
+                      />
+                      <p className="text-[11px] leading-snug text-ink-muted">
+                        For a spot the street address doesn’t find — drop a pin in Google Maps and copy the code shown with it.
+                      </p>
+                      <textarea
+                        rows={2}
+                        value={draft.instructions}
+                        onChange={(e) => editDraft({ instructions: e.target.value })}
+                        placeholder="Delivery instructions — gate code, where to unload (optional)"
+                        className={FIELD}
+                      />
+                      <label className="flex items-start gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={saveAddress}
+                          onChange={(e) => setSaveAddress(e.target.checked)}
+                          className="mt-0.5"
+                        />
+                        <span>Save this address for next time</span>
+                      </label>
+                      {saveAddress && (
+                        <input
+                          value={draft.label}
+                          onChange={(e) => editDraft({ label: e.target.value })}
+                          placeholder="Name it, e.g. Home block (optional)"
+                          maxLength={100}
+                          className={FIELD}
+                        />
+                      )}
+                      {draftProblem && draftHasContent(draft) && (
+                        <p className="text-xs text-ink-muted">{draftProblem}</p>
+                      )}
+                    </>
+                  )}
                   {deliveryUnavailable && (
                     <p className="text-xs text-red-700">Delivery isn't available to that postcode — please choose pickup or contact us.</p>
                   )}
@@ -385,7 +537,7 @@ export default function OrderPage() {
               disabled={
                 lines.length === 0 ||
                 submitting ||
-                (fulfilment === 'delivery' && (postcode.trim().length < 3 || deliveryUnavailable || quoting))
+                (fulfilment === 'delivery' && (postcode.trim().length < 3 || draftProblem !== null || deliveryUnavailable || quoting))
               }
               onClick={submit}
               className="mt-4 w-full rounded-sm bg-accent-700 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-800 disabled:opacity-50"

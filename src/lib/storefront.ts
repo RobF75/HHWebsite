@@ -80,6 +80,28 @@ export function getMyAddresses() {
   return authedJson<SavedAddress[]>('/nursery/my-addresses');
 }
 
+export interface NewAddressInput {
+  label?: string;
+  line1?: string;
+  line2?: string;
+  suburb: string;
+  state?: string;
+  postcode: string;
+  plus_code?: string;
+  instructions?: string;
+}
+
+/**
+ * Save an address typed at checkout onto the customer's account with each
+ * nursery in the basket (the basket decides which, not the client).
+ */
+export function saveMyAddress(input: { stock_item_ids: number[]; address: NewAddressInput }) {
+  return authedJson<{ address: SavedAddress; saved_to: number }>('/nursery/my-addresses', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
 export function getMyOrders() {
   return authedJson<MyOrder[]>('/nursery/my-orders');
 }
