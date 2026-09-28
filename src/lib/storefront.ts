@@ -64,6 +64,22 @@ export function placeOrder(input: PlaceOrderInput) {
   });
 }
 
+/** A delivery address a nursery holds for the buyer's organisation. */
+export interface SavedAddress {
+  id: number;
+  label: string | null;
+  postcode: string | null;
+  /** One line, for the picker. */
+  summary: string;
+  /** What the order's delivery address is filled with — includes plus code, site contact and instructions. */
+  order_text: string;
+  is_default: boolean;
+}
+
+export function getMyAddresses() {
+  return authedJson<SavedAddress[]>('/nursery/my-addresses');
+}
+
 export function getMyOrders() {
   return authedJson<MyOrder[]>('/nursery/my-orders');
 }

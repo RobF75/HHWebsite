@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { getCatalog, placeOrder, quoteDelivery } from '../lib/storefront';
-import type { DeliveryQuote } from '../lib/storefront';
+import { getCatalog, getMyAddresses, placeOrder, quoteDelivery } from '../lib/storefront';
+import type { DeliveryQuote, SavedAddress } from '../lib/storefront';
 import type { CatalogItem } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
 import PbrMark from '../components/PbrMark';
@@ -55,6 +55,40 @@ export default function OrderPage() {
   const [address, setAddress] = useState('');
   const [quotes, setQuotes] = useState<DeliveryQuote[]>([]);
   const [quoting, setQuoting] = useState(false);
+
+  // Addresses the buyer's nurseries already hold. '' = typing a new one.
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [savedId, setSavedId] = useState<string>('');
+
+  useEffect(() => {
+    let cancelled = false;
+    getMyAddresses()
+      .then((list) => { if (!cancelled) setSavedAddresses(list); })
+      .catch(() => { /* none to offer; typing an address still works */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  function chooseSaved(id: string) {
+    setSavedId(id);
+    const a = savedAddresses.find((x) => String(x.id) === id);
+    if (a) {
+      setPostcode(a.postcode ?? '');
+      setAddress(a.order_text);
+    } else {
+      setPostcode('');
+      setAddress('');
+    }
+  }
+
+  function chooseFulfilment(method: 'pickup' | 'delivery') {
+    setFulfilment(method);
+    // First switch to delivery with nothing typed: start on the default
+    // saved address rather than an empty form.
+    if (method === 'delivery' && !savedId && !postcode.trim() && !address.trim()) {
+      const def = savedAddresses.find((a) => a.is_default) ?? savedAddresses[0];
+      if (def) chooseSaved(String(def.id));
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -273,14 +307,14 @@ export default function OrderPage() {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setFulfilment('pickup')}
+                  onClick={() => chooseFulfilment('pickup')}
                   className={`flex-1 rounded-sm border px-3 py-2 text-sm transition-colors ${fulfilment === 'pickup' ? 'border-accent-700 bg-accent-50 text-accent-800' : 'border-stone-300 text-ink-muted hover:border-stone-400'}`}
                 >
                   Pickup (free)
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFulfilment('delivery')}
+                  onClick={() => chooseFulfilment('delivery')}
                   className={`flex-1 rounded-sm border px-3 py-2 text-sm transition-colors ${fulfilment === 'delivery' ? 'border-accent-700 bg-accent-50 text-accent-800' : 'border-stone-300 text-ink-muted hover:border-stone-400'}`}
                 >
                   Delivery
@@ -288,14 +322,31 @@ export default function OrderPage() {
               </div>
               {fulfilment === 'delivery' && (
                 <div className="mt-3 space-y-2">
+                  {savedAddresses.length > 0 && (
+                    <label className="block">
+                      <span className="block text-xs text-ink-muted mb-1">Deliver to</span>
+                      <select
+                        value={savedId}
+                        onChange={(e) => chooseSaved(e.target.value)}
+                        className="w-full rounded-sm border border-stone-300 bg-white px-2 py-1.5 text-sm focus:border-accent-700 focus:outline-none"
+                      >
+                        {savedAddresses.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.label ? `${a.label} — ${a.summary}` : a.summary}
+                          </option>
+                        ))}
+                        <option value="">A different address…</option>
+                      </select>
+                    </label>
+                  )}
                   <input
                     value={postcode}
-                    onChange={(e) => setPostcode(e.target.value)}
+                    onChange={(e) => { setPostcode(e.target.value); setSavedId(''); }}
                     placeholder="Delivery postcode"
                     className="w-full rounded-sm border border-stone-300 px-2 py-1.5 text-sm focus:border-accent-700 focus:outline-none"
                   />
                   <textarea
-                    rows={2}
+                    rows={savedId ? 4 : 2}
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     placeholder="Delivery address"
