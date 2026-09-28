@@ -5,6 +5,8 @@ import type { DeliveryQuote, SavedAddress } from '../lib/storefront';
 import type { CatalogItem } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
 import PbrMark from '../components/PbrMark';
+import AddressAutocomplete from '../components/AddressAutocomplete';
+import type { PlaceAddress } from '../lib/places';
 import PbrNotice from '../components/PbrNotice';
 import { isPbrProtected } from '../lib/pbr';
 
@@ -128,6 +130,20 @@ export default function OrderPage() {
 
   function editDraft(patch: Partial<AddressDraft>) {
     setDraft((d) => ({ ...d, ...patch }));
+  }
+
+  function fillFromPlace(a: PlaceAddress) {
+    setDraft((d) => ({
+      ...d,
+      line1: a.line1 ?? '',
+      line2: a.line2 ?? d.line2,
+      suburb: a.suburb ?? '',
+      state: a.state && AU_STATES.includes(a.state) ? a.state : d.state,
+      // No street number (a rural road, a named property): the driver needs
+      // the exact spot, so take Google's plus code — never over a typed one.
+      plus_code: !a.has_street_number && a.plus_code && !d.plus_code.trim() ? a.plus_code : d.plus_code,
+    }));
+    setPostcode(a.postcode ?? '');
   }
 
   function chooseFulfilment(method: 'pickup' | 'delivery') {
@@ -424,11 +440,11 @@ export default function OrderPage() {
                     </p>
                   ) : (
                     <>
-                      <input
+                      <AddressAutocomplete
                         value={draft.line1}
-                        onChange={(e) => editDraft({ line1: e.target.value })}
-                        placeholder="Street address"
-                        autoComplete="address-line1"
+                        onChange={(line1) => editDraft({ line1 })}
+                        onPick={fillFromPlace}
+                        placeholder="Start typing your street address"
                         className={FIELD}
                       />
                       <input
