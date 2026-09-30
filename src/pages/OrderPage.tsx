@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { getCatalog, getMyAddresses, placeOrder, quoteDelivery, saveMyAddress } from '../lib/storefront';
+import { catalogKey, getCatalog, getMyAddresses, lineRef, placeOrder, quoteDelivery, saveMyAddress } from '../lib/storefront';
 import type { DeliveryQuote, SavedAddress } from '../lib/storefront';
 import type { CatalogItem } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
@@ -92,7 +92,8 @@ export default function OrderPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [qty, setQty] = useState<Record<number, number>>({});
+  // Keyed by catalogKey(): a stock item and a product can share an id.
+  const [qty, setQty] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -176,20 +177,23 @@ export default function OrderPage() {
     };
   }, [cultivarFilter]);
 
-  const filterName = cultivarFilter && items.length > 0 ? (items[0].cultivar_trade_name || items[0].cultivar_name) : null;
+  // A product's row carries its own name, not the cultivar's, so name the
+  // filter from a stock item row when there is one.
+  const filterItem = items.find((it) => !it.product_id) ?? null;
+  const filterName = cultivarFilter && filterItem ? (filterItem.cultivar_trade_name || filterItem.cultivar_name) : null;
 
-  function setQuantity(id: number, value: string) {
+  function setQuantity(id: string, value: string) {
     const n = Math.max(0, Math.floor(Number(value) || 0));
     setQty((q) => ({ ...q, [id]: n }));
   }
 
   const lines = useMemo(
-    () => items.filter((it) => (qty[it.stock_item_id] ?? 0) > 0),
+    () => items.filter((it) => (qty[catalogKey(it)] ?? 0) > 0),
     [items, qty]
   );
 
   const total = useMemo(
-    () => lines.reduce((sum, it) => sum + unitPriceFor(it, qty[it.stock_item_id] ?? 0) * (qty[it.stock_item_id] ?? 0), 0),
+    () => lines.reduce((sum, it) => sum + unitPriceFor(it, qty[catalogKey(it)] ?? 0) * (qty[catalogKey(it)] ?? 0), 0),
     [lines, qty]
   );
 
@@ -197,7 +201,7 @@ export default function OrderPage() {
   const tierName = items.find((it) => it.tier_name)?.tier_name ?? null;
 
   // Quote delivery whenever the basket / postcode / method changes (debounced).
-  const lineKey = lines.map((it) => `${it.stock_item_id}:${qty[it.stock_item_id]}`).join(',');
+  const lineKey = lines.map((it) => `${catalogKey(it)}:${qty[catalogKey(it)]}`).join(',');
   useEffect(() => {
     if (fulfilment !== 'delivery' || lines.length === 0 || postcode.trim().length < 3) {
       setQuotes([]);
@@ -207,7 +211,7 @@ export default function OrderPage() {
     setQuoting(true);
     const timer = setTimeout(() => {
       quoteDelivery({
-        lines: lines.map((it) => ({ stock_item_id: it.stock_item_id, quantity_ordered: qty[it.stock_item_id] })),
+        lines: lines.map((it) => ({ ...lineRef(it), quantity_ordered: qty[catalogKey(it)] })),
         fulfilment_method: 'delivery',
         delivery_postcode: postcode.trim(),
       })
@@ -227,7 +231,7 @@ export default function OrderPage() {
   const grandTotal = total + deliveryFee;
 
   const totalTrees = useMemo(
-    () => lines.reduce((sum, it) => sum + (qty[it.stock_item_id] ?? 0), 0),
+    () => lines.reduce((sum, it) => sum + (qty[catalogKey(it)] ?? 0), 0),
     [lines, qty]
   );
 
@@ -245,7 +249,8 @@ export default function OrderPage() {
           let saved: SavedAddress;
           try {
             ({ address: saved } = await saveMyAddress({
-              stock_item_ids: lines.map((it) => it.stock_item_id),
+              stock_item_ids: lines.flatMap((it) => (it.product_id || it.stock_item_id == null ? [] : [it.stock_item_id])),
+              product_ids: lines.flatMap((it) => (it.product_id ? [it.product_id] : [])),
               address: { ...draft, postcode: postcode.trim() },
             }));
           } catch (err) {
@@ -263,7 +268,7 @@ export default function OrderPage() {
         }
       }
       const result = await placeOrder({
-        lines: lines.map((it) => ({ stock_item_id: it.stock_item_id, quantity_ordered: qty[it.stock_item_id] })),
+        lines: lines.map((it) => ({ ...lineRef(it), quantity_ordered: qty[catalogKey(it)] })),
         notes: notes.trim() || undefined,
         requested_delivery_date: deliveryDate || undefined,
         fulfilment_method: fulfilment,
@@ -326,12 +331,13 @@ export default function OrderPage() {
           {/* Catalogue */}
           <div className="divide-y divide-stone-200 border-y border-stone-200">
             {items.map((it) => {
-              const n = qty[it.stock_item_id] ?? 0;
+              const key = catalogKey(it);
+              const n = qty[key] ?? 0;
               const price = unitPriceFor(it, n);
               const hasBreaks = it.price_breaks && it.price_breaks.length > 1;
               const discounted = price < it.list_price;
               return (
-                <div key={it.stock_item_id} className="flex items-center gap-4 py-4">
+                <div key={key} className="flex items-center gap-4 py-4">
                   <div className="min-w-0 flex-1">
                     <div className="font-serif text-lg leading-snug">
                       {itemLabel(it)}
@@ -355,7 +361,7 @@ export default function OrderPage() {
                     min={0}
                     value={n || ''}
                     placeholder="0"
-                    onChange={(e) => setQuantity(it.stock_item_id, e.target.value)}
+                    onChange={(e) => setQuantity(key, e.target.value)}
                     className="w-20 rounded-sm border border-stone-300 px-2 py-1.5 text-sm text-right focus:border-accent-700 focus:outline-none"
                   />
                 </div>
@@ -371,9 +377,9 @@ export default function OrderPage() {
             ) : (
               <ul className="space-y-2 text-sm">
                 {lines.map((it) => (
-                  <li key={it.stock_item_id} className="flex justify-between gap-3">
-                    <span className="text-ink-muted truncate">{qty[it.stock_item_id]} × {itemLabel(it)}</span>
-                    <span className="tabular-nums">{money(unitPriceFor(it, qty[it.stock_item_id]) * qty[it.stock_item_id])}</span>
+                  <li key={catalogKey(it)} className="flex justify-between gap-3">
+                    <span className="text-ink-muted truncate">{qty[catalogKey(it)]} × {itemLabel(it)}</span>
+                    <span className="tabular-nums">{money(unitPriceFor(it, qty[catalogKey(it)]) * qty[catalogKey(it)])}</span>
                   </li>
                 ))}
               </ul>

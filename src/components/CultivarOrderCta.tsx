@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getCatalog } from '../lib/storefront';
+import { catalogKey, getCatalog } from '../lib/storefront';
 import type { CatalogItem } from '../lib/types';
 
 function money(v: string) {
@@ -93,8 +93,9 @@ export default function CultivarOrderCta({ cultivarId }: { cultivarId: number })
         <>
           <ul className="mb-4 divide-y divide-accent-200/60 border-y border-accent-200/60">
             {items.map((it) => (
-              <li key={it.stock_item_id} className="flex items-baseline justify-between gap-3 py-2 text-sm">
+              <li key={catalogKey(it)} className="flex items-baseline justify-between gap-3 py-2 text-sm">
                 <span className="text-ink">
+                  {it.product_id ? `${it.cultivar_name} · ` : ''}
                   {it.tree_type_name}
                   {it.rootstock_name ? ` · on ${it.rootstock_name}` : ''}
                 </span>

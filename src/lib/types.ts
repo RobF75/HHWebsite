@@ -107,8 +107,15 @@ export interface PriceBreak {
   unit_price: number;
 }
 
+// A catalogue row is a stock item, or an umbrella product the nursery sells
+// under its own name ("Dwarf Eureka Lemon") and fills from several stock
+// items. Exactly one of stock_item_id / product_id is set; key rows with
+// catalogKey(), since the two id spaces overlap.
 export interface CatalogItem {
-  stock_item_id: number;
+  stock_item_id: number | null;
+  product_id: number | null;
+  tag_colour_name?: string | null;
+  tag_colour_hex?: string | null;
   nursery_org_id: number;
   nursery_name: string;
   sku_code: string | null;

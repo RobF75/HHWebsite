@@ -7,9 +7,21 @@ import type {
   TradeTier,
 } from './types';
 
+/** A basket line names a stock item or an umbrella product — exactly one. */
 export interface OrderLineInput {
-  stock_item_id: number;
+  stock_item_id?: number;
+  product_id?: number;
   quantity_ordered: number;
+}
+
+/** A stable key for a catalogue row: stock item and product ids overlap. */
+export function catalogKey(it: Pick<CatalogItem, 'stock_item_id' | 'product_id'>): string {
+  return it.product_id ? `p:${it.product_id}` : `s:${it.stock_item_id}`;
+}
+
+/** What the server needs to know a basket line by. */
+export function lineRef(it: Pick<CatalogItem, 'stock_item_id' | 'product_id'>): Pick<OrderLineInput, 'stock_item_id' | 'product_id'> {
+  return it.product_id ? { product_id: it.product_id } : { stock_item_id: it.stock_item_id ?? undefined };
 }
 
 export interface PlaceOrderInput {
@@ -95,7 +107,7 @@ export interface NewAddressInput {
  * Save an address typed at checkout onto the customer's account with each
  * nursery in the basket (the basket decides which, not the client).
  */
-export function saveMyAddress(input: { stock_item_ids: number[]; address: NewAddressInput }) {
+export function saveMyAddress(input: { stock_item_ids: number[]; product_ids?: number[]; address: NewAddressInput }) {
   return authedJson<{ address: SavedAddress; saved_to: number }>('/nursery/my-addresses', {
     method: 'POST',
     body: JSON.stringify(input),
