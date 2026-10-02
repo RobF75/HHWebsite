@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getCultivar, mediaUrl } from '../lib/api';
-import type { PublicCultivarDetail, PublicAttributeValue, PublicCultivarProgram } from '../lib/types';
+import type { PublicCultivarDetail, PublicAttributeValue, PublicCultivarProgram, PublicSalesProfile } from '../lib/types';
 import MaturityChart from '../components/MaturityChart';
 import CultivarOrderCta from '../components/CultivarOrderCta';
 import PbrMark from '../components/PbrMark';
@@ -158,6 +158,74 @@ function AttributeGroups({ attributes }: { attributes: PublicAttributeValue[] })
   );
 }
 
+const PROFILE_FACTS: { key: 'fruit' | 'season' | 'tree' | 'growing'; label: string }[] = [
+  { key: 'fruit', label: 'Fruit' },
+  { key: 'season', label: 'Season' },
+  { key: 'tree', label: 'Tree' },
+  { key: 'growing', label: 'Growing' },
+];
+
+function ProfileList({ title, items }: { title: string; items: string[] }) {
+  if (!items?.length) return null;
+  return (
+    <div>
+      <h3 className="text-[11px] uppercase tracking-[0.18em] text-accent-700 mb-3">{title}</h3>
+      <ul className="space-y-2 text-sm text-ink list-disc pl-5">
+        {items.map((item) => <li key={item}>{item}</li>)}
+      </ul>
+    </div>
+  );
+}
+
+// The owner's published talking points. A comparison links to the other
+// cultivar's page when it is on the site too.
+function SalesProfile({ profile }: { profile: PublicSalesProfile }) {
+  const facts = PROFILE_FACTS.filter((f) => profile[f.key]);
+  return (
+    <section className="mt-16">
+      <h2 className="font-serif text-2xl tracking-tightish mb-6">At a glance</h2>
+      {profile.summary && <p className="text-lg text-ink leading-relaxed mb-8">{profile.summary}</p>}
+
+      {facts.length > 0 && (
+        <dl className="divide-y divide-stone-200 border-t border-b border-stone-200 mb-10">
+          {facts.map((f) => (
+            <div key={f.key} className="py-3 grid grid-cols-1 sm:grid-cols-4 gap-1 sm:gap-4 text-sm">
+              <dt className="text-ink-muted">{f.label}</dt>
+              <dd className="text-ink sm:col-span-3">{profile[f.key]}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-10">
+        <ProfileList title="Best for" items={profile.best_for} />
+        <ProfileList title="Why choose it" items={profile.selling_points} />
+        <ProfileList title="Good to know" items={profile.watch_outs} />
+      </div>
+
+      {profile.compared_with?.length > 0 && (
+        <div className="mt-10">
+          <h3 className="text-[11px] uppercase tracking-[0.18em] text-accent-700 mb-3">How it differs</h3>
+          <ul className="space-y-3 text-sm text-ink">
+            {profile.compared_with.map((c) => (
+              <li key={c.name}>
+                <span className="font-medium">
+                  From{' '}
+                  {c.cultivar_id != null
+                    ? <Link to={`/cultivar/${c.cultivar_id}`} className="underline underline-offset-2">{c.name}</Link>
+                    : c.name}
+                  :
+                </span>{' '}
+                <span className="text-ink-muted">{c.difference}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function CultivarPage() {
   const { id } = useParams<{ id: string }>();
   const [cultivar, setCultivar] = useState<PublicCultivarDetail | null>(null);
@@ -236,6 +304,8 @@ export default function CultivarPage() {
                 {cultivar.website_description}
               </div>
             )}
+
+            {cultivar.sales_profile && <SalesProfile profile={cultivar.sales_profile} />}
 
             <MaturityChart attributes={cultivar.attributes} />
 

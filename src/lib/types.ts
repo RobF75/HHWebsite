@@ -74,7 +74,26 @@ export interface PublicCultivarProgram {
   is_public: boolean;
 }
 
+/**
+ * A cultivar's talking points, once its owner has published them: what the
+ * fruit is like, when it crops, how the tree grows and how it differs from
+ * similar cultivars. A rootstock has no `fruit`.
+ */
+export interface PublicSalesProfile {
+  summary: string | null;
+  fruit: string | null;
+  season: string | null;
+  tree: string | null;
+  growing: string | null;
+  best_for: string[];
+  selling_points: string[];
+  watch_outs: string[];
+  compared_with: { cultivar_id: number | null; name: string; difference: string }[];
+}
+
 export interface PublicCultivarDetail extends PublicCultivarSummary {
+  /** Null until the owner publishes it. Absent from an older API. */
+  sales_profile?: PublicSalesProfile | null;
   origin_country: string | null;
   year_bred: number | null;
   website_description: string | null;
