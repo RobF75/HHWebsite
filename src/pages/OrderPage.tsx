@@ -14,6 +14,13 @@ function money(n: number) {
   return n.toLocaleString('en-AU', { style: 'currency', currency: 'AUD' });
 }
 
+// Prices are ex-GST. The order is invoiced, and paid online charged, with 10%
+// GST on each line, rounded to the cent per line as the server's invoice does
+// (HHNodeServer utils/nurseryAccounts gstOn), so the total here is the charge.
+const GST_RATE = 0.1;
+const cents = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+const gstOn = (exGst: number) => cents(exGst * GST_RATE);
+
 function itemLabel(it: CatalogItem) {
   const name = it.cultivar_trade_name || it.cultivar_name;
   const root = it.rootstock_name ? ` on ${it.rootstock_name}` : '';
@@ -228,7 +235,12 @@ export default function OrderPage() {
     [fulfilment, quotes]
   );
   const deliveryUnavailable = fulfilment === 'delivery' && quotes.length > 0 && quotes.some((q) => !q.available);
-  const grandTotal = total + deliveryFee;
+  const gst = useMemo(
+    () => lines.reduce((sum, it) => sum + gstOn(cents(unitPriceFor(it, qty[catalogKey(it)] ?? 0) * (qty[catalogKey(it)] ?? 0))), 0)
+      + gstOn(deliveryFee),
+    [lines, qty, deliveryFee]
+  );
+  const grandTotal = total + deliveryFee + gst;
 
   const totalTrees = useMemo(
     () => lines.reduce((sum, it) => sum + (qty[catalogKey(it)] ?? 0), 0),
@@ -352,6 +364,7 @@ export default function OrderPage() {
                   </div>
                   <div className="w-24 text-right text-sm tabular-nums">
                     {money(price)}
+                    <span className="block text-[11px] text-ink-muted">ex GST</span>
                     {discounted && (
                       <span className="block text-[11px] text-ink-muted line-through">{money(it.list_price)}</span>
                     )}
@@ -396,8 +409,12 @@ export default function OrderPage() {
                   <span className="tabular-nums">{deliveryUnavailable ? '—' : money(deliveryFee)}</span>
                 </div>
               )}
+              <div className="flex justify-between text-ink-muted">
+                <span>GST</span>
+                <span className="tabular-nums">{money(gst)}</span>
+              </div>
               <div className="flex justify-between font-medium border-t border-stone-100 pt-1.5">
-                <span>Total</span>
+                <span>Total inc. GST</span>
                 <span className="tabular-nums">{money(grandTotal)}</span>
               </div>
             </div>

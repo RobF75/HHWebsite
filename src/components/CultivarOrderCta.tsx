@@ -99,7 +99,7 @@ export default function CultivarOrderCta({ cultivarId }: { cultivarId: number })
                   {it.tree_type_name}
                   {it.rootstock_name ? ` · on ${it.rootstock_name}` : ''}
                 </span>
-                <span className="tabular-nums text-ink-muted">{money(it.website_price)}</span>
+                <span className="tabular-nums text-ink-muted">{money(it.website_price)} <span className="text-xs">ex GST</span></span>
               </li>
             ))}
           </ul>

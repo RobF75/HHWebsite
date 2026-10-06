@@ -105,7 +105,7 @@ export default function MyOrdersPage() {
                 <th className="py-3 pr-4 font-normal">Status</th>
                 <th className="py-3 pr-4 font-normal">Payment</th>
                 <th className="py-3 pr-4 font-normal text-right">Trees</th>
-                <th className="py-3 font-normal text-right">Value</th>
+                <th className="py-3 font-normal text-right">Value ex GST</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-200">
