@@ -184,8 +184,8 @@ export default function RegisterPage() {
         </label>
         <label className="block">
           <span className="block text-sm text-ink-muted mb-1">Password</span>
-          <input type="password" required minLength={8} value={form.password} onChange={(e) => set('password', e.target.value)} className={fieldClass} />
-          <span className="mt-1 block text-xs text-ink-muted">At least 8 characters.</span>
+          <input type="password" required minLength={10} value={form.password} onChange={(e) => set('password', e.target.value)} className={fieldClass} />
+          <span className="mt-1 block text-xs text-ink-muted">At least 10 characters.</span>
         </label>
         {trade && (
           <div className="space-y-2">
