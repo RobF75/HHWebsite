@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import RequireAuth from './components/RequireAuth';
+import RequireSite from './components/RequireSite';
 import HomePage from './pages/HomePage';
 import SpeciesPage from './pages/SpeciesPage';
 import CultivarPage from './pages/CultivarPage';
@@ -21,16 +22,16 @@ export default function App() {
         <Route index element={<HomePage />} />
         <Route path="about" element={<AboutPage />} />
         <Route path="contact" element={<ContactPage />} />
-        <Route path="login" element={<LoginPage />} />
-        <Route path="register" element={<RegisterPage />} />
-        <Route path="order" element={<RequireAuth><OrderPage /></RequireAuth>} />
-        <Route path="account/orders" element={<RequireAuth><MyOrdersPage /></RequireAuth>} />
-        <Route path="account/trade" element={<RequireAuth><TradeAccountPage /></RequireAuth>} />
+        <Route path="login" element={<RequireSite feature="shop"><LoginPage /></RequireSite>} />
+        <Route path="register" element={<RequireSite feature="shop"><RegisterPage /></RequireSite>} />
+        <Route path="order" element={<RequireSite feature="shop"><RequireAuth><OrderPage /></RequireAuth></RequireSite>} />
+        <Route path="account/orders" element={<RequireSite feature="shop"><RequireAuth><MyOrdersPage /></RequireAuth></RequireSite>} />
+        <Route path="account/trade" element={<RequireSite feature="shop"><RequireAuth><TradeAccountPage /></RequireAuth></RequireSite>} />
         <Route path="cultivar/:id" element={<CultivarPage />} />
         {/* Must stay above :speciesSlug conceptually — a static segment outranks
             a dynamic one in the router's own scoring, but leaving it below would
             read as though "harvest-calendar" were a species. */}
-        <Route path="harvest-calendar" element={<HarvestCalendarPage />} />
+        <Route path="harvest-calendar" element={<RequireSite feature="platform"><HarvestCalendarPage /></RequireSite>} />
         <Route path=":speciesSlug" element={<SpeciesPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

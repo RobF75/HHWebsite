@@ -44,7 +44,8 @@ export async function login(email: string, password: string): Promise<CurrentUse
   return data.user;
 }
 
-export type CustomerType = 'grower' | 'garden_centre' | 'retail';
+// Trade only: home gardeners sign up on the home garden site.
+export type CustomerType = 'grower' | 'garden_centre';
 
 export interface RegisterPayload {
   email: string;

@@ -1,4 +1,22 @@
+import { useSite } from '../context/SiteContext';
+
+/** An organisation's site: its own words, as plain text. */
+function TenantAbout() {
+  const site = useSite();
+  return (
+    <div className="container-prose py-20 max-w-3xl">
+      <p className="text-[11px] uppercase tracking-[0.22em] mb-4" style={{ color: 'var(--site-primary, #344d30)' }}>About</p>
+      <h1 className="font-serif text-5xl md:text-6xl tracking-tightish leading-[1.05]">{site.name}</h1>
+      <div className="mt-12 text-lg leading-relaxed text-ink-muted whitespace-pre-line">
+        {site.branding.about || site.branding.tagline || `${site.name} grows the cultivars in this catalogue.`}
+      </div>
+    </div>
+  );
+}
+
 export default function AboutPage() {
+  const site = useSite();
+  if (!site.is_platform_site) return <TenantAbout />;
   return (
     <div className="container-prose py-20 max-w-3xl">
       <p className="text-[11px] uppercase tracking-[0.22em] text-accent-700 mb-4">About</p>
@@ -16,7 +34,9 @@ export default function AboutPage() {
           and grower performance across Australian growing regions.
         </p>
         <p>
-          We do not sell retail. Minimum order quantities apply. If you're planning a planting program — get in touch.
+          We sell to commercial growers, garden centres and nurseries, not retail. Minimum order quantities apply.
+          If you're planning a planting program — get in touch. Home gardeners: visit{' '}
+          <a href="https://home-garden.factree.com.au" className="underline">home-garden.factree.com.au</a>.
         </p>
       </div>
     </div>

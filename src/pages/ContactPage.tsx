@@ -1,4 +1,34 @@
+import { useSite } from '../context/SiteContext';
+
+function TenantContact() {
+  const site = useSite();
+  const { contact_email: email, contact_phone: phone } = site.branding;
+  return (
+    <div className="container-prose py-20 max-w-3xl">
+      <p className="text-[11px] uppercase tracking-[0.22em] mb-4" style={{ color: 'var(--site-primary, #344d30)' }}>Contact</p>
+      <h1 className="font-serif text-5xl md:text-6xl tracking-tightish leading-[1.05]">Get in touch with {site.name}.</h1>
+      <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 gap-8 text-sm">
+        {email && (
+          <div>
+            <h3 className="font-serif text-lg mb-2">Email</h3>
+            <a href={`mailto:${email}`} className="text-ink-muted underline">{email}</a>
+          </div>
+        )}
+        {phone && (
+          <div>
+            <h3 className="font-serif text-lg mb-2">Phone</h3>
+            <a href={`tel:${phone.replace(/[^\d+]/g, '')}`} className="text-ink-muted underline">{phone}</a>
+          </div>
+        )}
+        {!email && !phone && <p className="text-ink-muted">Contact details are coming soon.</p>}
+      </div>
+    </div>
+  );
+}
+
 export default function ContactPage() {
+  const site = useSite();
+  if (!site.is_platform_site) return <TenantContact />;
   return (
     <div className="container-prose py-20 max-w-3xl">
       <p className="text-[11px] uppercase tracking-[0.22em] text-accent-700 mb-4">Contact</p>

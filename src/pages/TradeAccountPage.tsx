@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   applyForTradeAccount,
   getCatalog,
@@ -124,9 +123,8 @@ export default function TradeAccountPage() {
       <p className="text-[11px] uppercase tracking-[0.22em] text-accent-700 mb-4">Wholesale</p>
       <h1 className="font-serif text-4xl md:text-5xl tracking-tightish leading-[1.05]">Trade account</h1>
       <p className="mt-3 max-w-prose text-sm text-ink-muted leading-relaxed">
-        Garden centres and commercial growers can apply for a wholesale trade account to access
-        trade pricing and bulk delivery. Your application is reviewed by the nursery before pricing
-        is unlocked.
+        Garden centres and commercial growers need a trade account to order online. The nursery
+        reviews your application and sets your trade pricing; you can order once it is approved.
       </p>
 
       {loading && <p className="mt-12 text-ink-muted">Loading…</p>}
@@ -241,7 +239,7 @@ export default function TradeAccountPage() {
             <h2 className="font-serif text-xl mb-4">Your applications</h2>
             {requests.length === 0 ? (
               <p className="text-sm text-ink-muted">
-                You haven't applied yet. In the meantime you can <Link to="/order" className="text-accent-700 underline">order at retail pricing</Link>.
+                You haven't applied yet. Apply above: you can order online once the nursery approves your trade account.
               </p>
             ) : (
               <ul className="space-y-3">

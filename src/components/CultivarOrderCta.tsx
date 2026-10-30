@@ -84,6 +84,24 @@ export default function CultivarOrderCta({ cultivarId }: { cultivarId: number })
     );
   }
 
+  // Sold online, but not to this customer yet: ordering needs a trade account.
+  if (items !== null && !loading && !items.some((it) => it.trade_account)) {
+    return (
+      <div className="rounded bg-accent-50 border border-accent-200 p-6">
+        <h3 className="font-serif text-lg mb-2">Order this cultivar</h3>
+        <p className="text-sm text-ink-muted mb-4">
+          You can order once a nursery approves your trade account.
+        </p>
+        <Link
+          to="/account/trade"
+          className="inline-flex items-center gap-2 bg-ink text-stone-50 px-5 py-2.5 rounded-sm text-sm hover:bg-accent-700 transition-colors"
+        >
+          Apply for a trade account
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded bg-accent-50 border border-accent-200 p-6">
       <h3 className="font-serif text-lg mb-2">Order this cultivar</h3>
@@ -92,7 +110,7 @@ export default function CultivarOrderCta({ cultivarId }: { cultivarId: number })
       ) : (
         <>
           <ul className="mb-4 divide-y divide-accent-200/60 border-y border-accent-200/60">
-            {items.map((it) => (
+            {items.filter((it) => it.trade_account).map((it) => (
               <li key={catalogKey(it)} className="flex items-baseline justify-between gap-3 py-2 text-sm">
                 <span className="text-ink">
                   {it.product_id ? `${it.cultivar_name} · ` : ''}

@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { CurrentUser } from '../lib/types';
 import * as auth from '../lib/auth';
 import type { RegisterPayload } from '../lib/auth';
+import { useSite } from './SiteContext';
 
 interface AuthState {
   user: CurrentUser | null;
@@ -14,10 +15,15 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { shop } = useSite();
   const [user, setUser] = useState<CurrentUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(shop);
 
   useEffect(() => {
+    // Accounts belong to a site with a shop: ours, for now. Another
+    // organisation's site has no sign-in, and its origin isn't allowed to
+    // call the auth API anyway.
+    if (!shop) return;
     let cancelled = false;
     auth
       .restoreSession()
@@ -30,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [shop]);
 
   const value: AuthState = {
     user,

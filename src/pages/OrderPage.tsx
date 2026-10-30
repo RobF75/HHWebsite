@@ -96,6 +96,8 @@ export default function OrderPage() {
   const cultivarFilter = cultivarParam ? Number(cultivarParam) : null;
 
   const [items, setItems] = useState<CatalogItem[]>([]);
+  // Nurseries whose stock this customer can't order yet: no approved trade account.
+  const [lockedNurseries, setLockedNurseries] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -171,7 +173,11 @@ export default function OrderPage() {
     setLoading(true);
     getCatalog(cultivarFilter ?? undefined)
       .then((data) => {
-        if (!cancelled) setItems(data);
+        if (cancelled) return;
+        // Trade customers only (the server refuses the rest too): ordering
+        // needs an approved trade account with the nursery.
+        setItems(data.filter((it) => it.trade_account));
+        setLockedNurseries([...new Set(data.filter((it) => !it.trade_account).map((it) => it.nursery_name))]);
       })
       .catch((err) => {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load catalogue');
@@ -333,7 +339,20 @@ export default function OrderPage() {
       {loading && <p className="mt-12 text-ink-muted">Loading catalogue…</p>}
       {loadError && <p className="mt-12 text-red-700">{loadError}</p>}
 
-      {!loading && !loadError && items.length === 0 && (
+      {!loading && !loadError && lockedNurseries.length > 0 && (
+        <div className="mt-8 rounded-sm border border-accent-200 bg-accent-50 px-4 py-4 text-sm text-ink">
+          <p className="font-medium">
+            {items.length === 0 ? 'You need an approved trade account to order.' : 'Some stock needs a trade account.'}
+          </p>
+          <p className="mt-1 text-ink-muted">
+            {lockedNurseries.join(', ')} {lockedNurseries.length === 1 ? 'has' : 'have'} stock you can order once
+            they approve your trade account.{' '}
+            <Link to="/account/trade" className="text-accent-700 underline">Apply for a trade account</Link>
+          </p>
+        </div>
+      )}
+
+      {!loading && !loadError && items.length === 0 && lockedNurseries.length === 0 && (
         <p className="mt-12 text-ink-muted">No stock is currently available to order online. Please check back soon.</p>
       )}
 

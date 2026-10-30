@@ -14,14 +14,10 @@ const TYPE_OPTIONS: { value: CustomerType; title: string; blurb: string }[] = [
     title: 'Garden centre or nursery',
     blurb: 'Retail nurseries and garden centres buying wholesale to resell.',
   },
-  {
-    value: 'retail',
-    title: 'Buying direct',
-    blurb: 'Home gardeners and individuals ordering for themselves.',
-  },
 ];
 
-const isTrade = (t: CustomerType | null) => t === 'grower' || t === 'garden_centre';
+// This site is for trade only; home gardeners have their own.
+const HOME_GARDEN_URL = 'https://home-garden.factree.com.au';
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -39,7 +35,7 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Legacy customer-number lookup (grower / garden-centre only).
+  // Legacy customer-number lookup.
   const [lookupState, setLookupState] = useState<'idle' | 'loading' | 'matched' | 'nomatch' | 'error'>('idle');
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [matchedName, setMatchedName] = useState<string | null>(null);
@@ -92,7 +88,7 @@ export default function RegisterPage() {
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
         password: form.password,
-        customer_number: isTrade(customerType) ? form.customer_number.trim() || undefined : undefined,
+        customer_number: form.customer_number.trim() || undefined,
         customer_type: customerType,
       });
       navigate('/order', { replace: true });
@@ -132,11 +128,15 @@ export default function RegisterPage() {
           Already have an account?{' '}
           <Link to="/login" className="text-accent-700 underline">Sign in</Link>
         </p>
+
+        <div className="mt-10 rounded-sm border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-ink-muted">
+          We sell to commercial growers and the trade only. Home gardener? Find your trees and how to care for them at{' '}
+          <a href={HOME_GARDEN_URL} className="text-accent-700 underline">home-garden.factree.com.au</a>.
+        </div>
       </div>
     );
   }
 
-  const trade = isTrade(customerType);
   const selected = TYPE_OPTIONS.find((o) => o.value === customerType)!;
 
   return (
@@ -155,19 +155,17 @@ export default function RegisterPage() {
         </button>
       </div>
 
-      {trade && (
-        <p className="mt-4 text-sm text-ink-muted leading-relaxed">
-          If you already deal with us, add your existing customer number and email and we'll connect your account to
-          your records.
-        </p>
-      )}
+      <p className="mt-4 text-sm text-ink-muted leading-relaxed">
+        If you already deal with us, add your existing customer number and email and we'll connect your account to
+        your records. You can order once a nursery has approved your trade account.
+      </p>
 
       <form onSubmit={onSubmit} className="mt-10 space-y-5">
         {error && (
           <div className="rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
         )}
         <label className="block">
-          <span className="block text-sm text-ink-muted mb-1">{trade ? 'Business name' : 'Your name'}</span>
+          <span className="block text-sm text-ink-muted mb-1">Business name</span>
           <input required value={form.business_name} onChange={(e) => set('business_name', e.target.value)} className={fieldClass} />
         </label>
         <label className="block">
@@ -187,37 +185,35 @@ export default function RegisterPage() {
           <input type="password" required minLength={10} value={form.password} onChange={(e) => set('password', e.target.value)} className={fieldClass} />
           <span className="mt-1 block text-xs text-ink-muted">At least 10 characters.</span>
         </label>
-        {trade && (
-          <div className="space-y-2">
-            <label className="block">
-              <span className="block text-sm text-ink-muted mb-1">Existing customer number <span className="text-ink-muted/70">(optional)</span></span>
-              <input value={form.customer_number} onChange={(e) => set('customer_number', e.target.value)} className={fieldClass} />
-            </label>
-            <button
-              type="button"
-              onClick={onLookup}
-              disabled={lookupState === 'loading' || !form.customer_number.trim() || !form.email.trim()}
-              className="rounded-sm border border-accent-700 px-3 py-1.5 text-sm text-accent-700 transition-colors hover:bg-accent-50 disabled:opacity-50"
-            >
-              {lookupState === 'loading' ? 'Checking…' : 'Find my account'}
-            </button>
-            <span className="ml-2 text-xs text-ink-muted">Uses the email above to match your records.</span>
-            {lookupState === 'matched' && (
-              <div className="rounded-sm border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-                Found{matchedName ? `: ${matchedName}` : ''} — we'll connect your account to your records.
-              </div>
-            )}
-            {lookupState === 'nomatch' && (
-              <div className="rounded-sm border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                We couldn't match that customer number and email. Check they're correct, or create your account anyway
-                and we'll link it to your records manually.
-              </div>
-            )}
-            {lookupState === 'error' && (
-              <div className="rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{lookupError}</div>
-            )}
-          </div>
-        )}
+        <div className="space-y-2">
+          <label className="block">
+            <span className="block text-sm text-ink-muted mb-1">Existing customer number <span className="text-ink-muted/70">(optional)</span></span>
+            <input value={form.customer_number} onChange={(e) => set('customer_number', e.target.value)} className={fieldClass} />
+          </label>
+          <button
+            type="button"
+            onClick={onLookup}
+            disabled={lookupState === 'loading' || !form.customer_number.trim() || !form.email.trim()}
+            className="rounded-sm border border-accent-700 px-3 py-1.5 text-sm text-accent-700 transition-colors hover:bg-accent-50 disabled:opacity-50"
+          >
+            {lookupState === 'loading' ? 'Checking…' : 'Find my account'}
+          </button>
+          <span className="ml-2 text-xs text-ink-muted">Uses the email above to match your records.</span>
+          {lookupState === 'matched' && (
+            <div className="rounded-sm border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+              Found{matchedName ? `: ${matchedName}` : ''} — we'll connect your account to your records.
+            </div>
+          )}
+          {lookupState === 'nomatch' && (
+            <div className="rounded-sm border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              We couldn't match that customer number and email. Check they're correct, or create your account anyway
+              and we'll link it to your records manually.
+            </div>
+          )}
+          {lookupState === 'error' && (
+            <div className="rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{lookupError}</div>
+          )}
+        </div>
         <button
           type="submit"
           disabled={submitting}

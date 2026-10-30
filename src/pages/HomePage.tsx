@@ -6,6 +6,7 @@ import type { PublicCultivarSummary, PublicSpecies } from '../lib/types';
 import PbrMark from '../components/PbrMark';
 import PbrNotice from '../components/PbrNotice';
 import { isPbrProtected } from '../lib/pbr';
+import { useSite } from '../context/SiteContext';
 
 interface SpeciesGroup {
   parentName: string | null;
@@ -25,6 +26,35 @@ function groupByParent(species: PublicSpecies[]): SpeciesGroup[] {
     else groups.set(s.parent_name, { parentName: s.parent_name, children: [s] });
   }
   return [...groups.values(), ...ungrouped];
+}
+
+/** An organisation's own site: its name and tagline, and a way to reach it. */
+function TenantHero() {
+  const site = useSite();
+  return (
+    <section className="container-prose pt-20 pb-24 md:pt-28 md:pb-32">
+      <div className="max-w-3xl">
+        <p className="text-[11px] uppercase tracking-[0.22em] mb-6" style={{ color: 'var(--site-primary, #344d30)' }}>
+          Cultivar catalogue
+        </p>
+        <h1 className="font-serif text-5xl md:text-7xl leading-[1.05] tracking-tightish">
+          {site.branding.header_text || site.name}
+        </h1>
+        {site.branding.tagline && (
+          <p className="mt-8 text-lg text-ink-muted leading-relaxed max-w-2xl">{site.branding.tagline}</p>
+        )}
+        <div className="mt-10 flex items-center gap-6 text-sm">
+          <Link
+            to="/contact"
+            className="inline-flex items-center gap-2 bg-ink text-stone-50 px-6 py-3 rounded-sm hover:opacity-90 transition-opacity"
+          >
+            Get in touch
+          </Link>
+          <a href="#species" className="text-ink-muted hover:text-ink">Browse cultivars →</a>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function Hero() {
@@ -54,6 +84,7 @@ function Hero() {
 }
 
 function SpeciesGrid() {
+  const site = useSite();
   const { species, loading } = useSpecies();
   const groups = useMemo(() => groupByParent(species), [species]);
 
@@ -62,7 +93,7 @@ function SpeciesGrid() {
       <div className="flex items-end justify-between mb-10">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-accent-700 mb-3">By species</p>
-          <h2 className="font-serif text-3xl md:text-4xl tracking-tightish">What we grow</h2>
+          <h2 className="font-serif text-3xl md:text-4xl tracking-tightish">{site.is_platform_site ? 'What we grow' : 'Cultivars'}</h2>
         </div>
       </div>
       {loading ? (
@@ -180,6 +211,16 @@ function Values() {
 }
 
 export default function HomePage() {
+  const site = useSite();
+  if (!site.is_platform_site) {
+    return (
+      <>
+        <TenantHero />
+        <Featured />
+        <SpeciesGrid />
+      </>
+    );
+  }
   return (
     <>
       <Hero />

@@ -106,7 +106,26 @@ export interface PublicCultivarDetail extends PublicCultivarSummary {
 export interface ApiEnvelope<T> {
   success: boolean;
   data?: T;
-  error?: { message: string };
+  error?: { message: string; code?: string; moved_to?: string };
+}
+
+/** An organisation's site (GET /api/public/v2/site). Text and colours only. */
+export interface PublicSite {
+  slug: string;
+  name: string;
+  kind: 'hosted' | 'external';
+  is_platform_site: boolean;
+  /** Whether it sells online. Only ours, until the Sales module. */
+  shop: boolean;
+  has_logo: boolean;
+  branding: {
+    header_text: string | null;
+    tagline: string | null;
+    about: string | null;
+    primary_color: string | null;
+    contact_email: string | null;
+    contact_phone: string | null;
+  };
 }
 
 // ---- Authenticated customer / storefront ----------------------------------
@@ -146,6 +165,8 @@ export interface CatalogItem {
   price_breaks: PriceBreak[];
   tier_name: string | null;
   nursery_customer_id: number | null;
+  // An approved trade account with this nursery; without one the item can't be ordered.
+  trade_account: boolean;
   cultivar_id: number;
   cultivar_name: string;
   cultivar_trade_name: string | null;

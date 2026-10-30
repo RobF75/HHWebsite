@@ -14,6 +14,33 @@ Static React/Vite SPA. Reads live cultivar data from the existing `hh-backend` C
   pick dates, not inferred from attribute names like the per-cultivar seasonal calendar above.
 - About + Contact
 
+## Commercial growers only
+
+This site is for commercial growers and the trade (garden centres and nurseries
+buying wholesale). Home gardeners go to **home-garden.factree.com.au**
+(`HHHomeGarden`). Registration offers growers and garden centres only, and
+ordering needs a trade account the nursery has approved: without one the order
+page asks the customer to apply, and the server refuses the order
+(`TRADE_ACCOUNT_REQUIRED`).
+
+## Other organisations' sites
+
+The same build is every organisation's hosted site, at `{slug}.factree.com.au`
+or the organisation's own domain (`HHjsFrontEnd/docs/tenant-websites-plan.md`).
+`src/lib/site.ts` reads the hostname:
+
+| Host | Site | API |
+| --- | --- | --- |
+| website.factree.com.au, factree.com.au, www, website.factree.au | ours | `/api/public/*` (v1) |
+| `{slug}.factree.com.au` / `.factree.au`, any other domain | that organisation's | `/api/public/v2/*`, found by the browser's Origin |
+
+An organisation's site shows its catalogue, name, logo, colour, about and
+contact details, set in the app under Organisation Admin → Websites. It has no
+sign-in, ordering or harvest calendar until the Sales module brings a shop.
+
+Locally, `http://localhost:5174/?site=<slug>` previews an organisation's site
+and remembers it for the tab; `?site=` goes back to ours.
+
 ## Where the data comes from
 
 | Site needs | Source on hh-backend |
@@ -23,6 +50,7 @@ Static React/Vite SPA. Reads live cultivar data from the existing `hh-backend` C
 | Cultivar detail | `GET /api/public/cultivars/:id` |
 | Hero / gallery images | `GET /api/public/media/:id/file` |
 | Harvest calendar | `GET /api/public/maturity-chart` |
+| An organisation's site | `GET /api/public/v2/site`, then the same paths under `/api/public/v2` |
 
 A cultivar is exposed only if its owner has flipped **Publish to website** on the cultivar edit page in `tech.factree.com.au`. Media uses `cultivar_media.visibility = 'public'`; attribute fields use `cultivar_attribute_definitions.visibility_default = 'public'`.
 

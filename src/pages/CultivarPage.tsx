@@ -4,6 +4,7 @@ import { getCultivar, mediaUrl } from '../lib/api';
 import type { PublicCultivarDetail, PublicAttributeValue, PublicCultivarProgram, PublicSalesProfile } from '../lib/types';
 import MaturityChart from '../components/MaturityChart';
 import CultivarOrderCta from '../components/CultivarOrderCta';
+import { useSite } from '../context/SiteContext';
 import PbrMark from '../components/PbrMark';
 import PbrNotice from '../components/PbrNotice';
 
@@ -227,6 +228,7 @@ function SalesProfile({ profile }: { profile: PublicSalesProfile }) {
 }
 
 export default function CultivarPage() {
+  const site = useSite();
   const { id } = useParams<{ id: string }>();
   const [cultivar, setCultivar] = useState<PublicCultivarDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -351,7 +353,20 @@ export default function CultivarPage() {
               </dl>
             </div>
 
-            <CultivarOrderCta cultivarId={cultivar.id} />
+            {site.shop ? (
+              <CultivarOrderCta cultivarId={cultivar.id} />
+            ) : (
+              <div className="rounded bg-stone-100 border border-stone-200 p-6">
+                <h3 className="font-serif text-lg mb-2">Interested in this cultivar?</h3>
+                <p className="text-sm text-ink-muted mb-4">Ask {site.name} about availability and pricing.</p>
+                <Link
+                  to="/contact"
+                  className="inline-flex items-center gap-2 bg-ink text-stone-50 px-5 py-2.5 rounded-sm text-sm hover:opacity-90 transition-opacity"
+                >
+                  Enquire
+                </Link>
+              </div>
+            )}
           </aside>
         </div>
       </div>

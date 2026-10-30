@@ -2,6 +2,8 @@ import { Outlet, NavLink, Link, useLocation, useNavigate } from 'react-router-do
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSpecies } from '../hooks/useSpecies';
 import { useAuth } from '../context/AuthContext';
+import { useSite } from '../context/SiteContext';
+import { siteLogoUrl } from '../lib/api';
 import type { PublicSpecies } from '../lib/types';
 
 interface SpeciesGroup {
@@ -35,7 +37,22 @@ function groupSpeciesByParent(species: PublicSpecies[]): SpeciesGroup[] {
   return [...groups.values(), ...ungrouped];
 }
 
+// The home garden site is where home gardeners go; this one is for trade.
+const HOME_GARDEN_URL = 'https://home-garden.factree.com.au';
+
 function Brand() {
+  const site = useSite();
+  if (!site.is_platform_site) {
+    // Text and the organisation's logo only, in its colour.
+    return (
+      <Link to="/" className="inline-flex items-center gap-3">
+        {site.has_logo && <img src={siteLogoUrl()} alt="" className="h-10 w-auto max-w-[8rem] object-contain" />}
+        <span className="font-serif text-2xl tracking-tightish text-ink" style={{ color: 'var(--site-primary, inherit)' }}>
+          {site.branding.header_text || site.name}
+        </span>
+      </Link>
+    );
+  }
   return (
     <Link to="/" className="inline-flex items-baseline gap-2 group">
       <span className="font-serif text-2xl tracking-tightish text-ink">Factree</span>
@@ -54,10 +71,11 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
 }
 
 function AuthNav() {
+  const { shop } = useSite();
   const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
 
-  if (loading) return null;
+  if (!shop || loading) return null;
 
   if (!user) {
     return (
@@ -176,6 +194,7 @@ function SpeciesDropdown({ group }: { group: SpeciesGroup }) {
 }
 
 function Header() {
+  const site = useSite();
   const { species } = useSpecies();
   const [open, setOpen] = useState(false);
   const location = useLocation();
@@ -186,7 +205,10 @@ function Header() {
   }, [location.pathname]);
 
   return (
-    <header className="border-b border-stone-200 bg-stone-50/95 backdrop-blur sticky top-0 z-30">
+    <header
+      className="border-b border-stone-200 bg-stone-50/95 backdrop-blur sticky top-0 z-30"
+      style={site.branding.primary_color ? { borderTop: '3px solid var(--site-primary)' } : undefined}
+    >
       <div className="container-prose flex h-20 items-center justify-between gap-6">
         <Brand />
 
@@ -200,11 +222,11 @@ function Header() {
               </NavLink>
             )
           )}
-          <NavLink to="/harvest-calendar" className={navLinkClass}>Harvest calendar</NavLink>
+          {site.is_platform_site && <NavLink to="/harvest-calendar" className={navLinkClass}>Harvest calendar</NavLink>}
           <span className="h-4 w-px bg-stone-300" aria-hidden />
           <NavLink to="/about" className={navLinkClass}>About</NavLink>
           <NavLink to="/contact" className={navLinkClass}>Contact</NavLink>
-          <span className="h-4 w-px bg-stone-300" aria-hidden />
+          {site.shop && <span className="h-4 w-px bg-stone-300" aria-hidden />}
           <AuthNav />
         </nav>
 
@@ -242,11 +264,11 @@ function Header() {
                 </NavLink>
               )
             )}
-            <NavLink to="/harvest-calendar" className={navLinkClass}>Harvest calendar</NavLink>
+            {site.is_platform_site && <NavLink to="/harvest-calendar" className={navLinkClass}>Harvest calendar</NavLink>}
             <hr className="border-stone-200" />
             <NavLink to="/about" className={navLinkClass}>About</NavLink>
             <NavLink to="/contact" className={navLinkClass}>Contact</NavLink>
-            <hr className="border-stone-200" />
+            {site.shop && <hr className="border-stone-200" />}
             <AuthNav />
           </nav>
         </div>
@@ -255,8 +277,49 @@ function Header() {
   );
 }
 
-function Footer() {
+function TenantFooter() {
+  const site = useSite();
   const { species } = useSpecies();
+  const b = site.branding;
+  return (
+    <footer className="mt-32 border-t border-stone-200 bg-white">
+      <div className="container-prose py-16 grid grid-cols-1 md:grid-cols-4 gap-10">
+        <div className="md:col-span-2">
+          <Brand />
+          {b.tagline && <p className="mt-4 max-w-md text-sm text-ink-muted leading-relaxed">{b.tagline}</p>}
+        </div>
+        <div>
+          <h4 className="font-serif text-base mb-3">Cultivars</h4>
+          <ul className="space-y-2 text-sm">
+            {species.slice(0, 6).map((s) => (
+              <li key={s.id}>
+                <Link to={`/${s.slug}`} className="text-ink-muted hover:text-ink">{s.name}</Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h4 className="font-serif text-base mb-3">{site.name}</h4>
+          <ul className="space-y-2 text-sm">
+            <li><Link to="/about" className="text-ink-muted hover:text-ink">About</Link></li>
+            <li><Link to="/contact" className="text-ink-muted hover:text-ink">Contact</Link></li>
+          </ul>
+        </div>
+      </div>
+      <div className="border-t border-stone-200">
+        <div className="container-prose py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-ink-muted">
+          <span>© {new Date().getFullYear()} {site.name}</span>
+          <span>Catalogue by <a href="https://website.factree.com.au" className="underline hover:text-ink">Factree</a></span>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+function Footer() {
+  const site = useSite();
+  const { species } = useSpecies();
+  if (!site.is_platform_site) return <TenantFooter />;
   return (
     <footer className="mt-32 border-t border-stone-200 bg-white">
       <div className="container-prose py-16 grid grid-cols-1 md:grid-cols-4 gap-10">
@@ -290,7 +353,10 @@ function Footer() {
       <div className="border-t border-stone-200">
         <div className="container-prose py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-ink-muted">
           <span>© {new Date().getFullYear()} Factree Pty Ltd. All rights reserved.</span>
-          <span>Commercial enquiries only. Minimum order quantities apply.</span>
+          <span>
+            Commercial growers only. Minimum order quantities apply. Home gardener?{' '}
+            <a href={HOME_GARDEN_URL} className="underline hover:text-ink">home-garden.factree.com.au</a>
+          </span>
         </div>
       </div>
     </footer>
