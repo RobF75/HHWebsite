@@ -7,6 +7,7 @@ import {
 } from '../lib/storefront';
 import type { TradeAccountRequest, TradeTier } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
+import { useSite } from '../context/SiteContext';
 
 interface NurseryOption {
   id: number;
@@ -20,6 +21,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function TradeAccountPage() {
+  const site = useSite();
   const { user } = useAuth();
 
   const [nurseries, setNurseries] = useState<NurseryOption[]>([]);
@@ -46,8 +48,11 @@ export default function TradeAccountPage() {
       .then(([catalog, reqs]) => {
         if (cancelled) return;
         const seen = new Map<number, string>();
-        for (const it of catalog) seen.set(it.nursery_org_id, it.nursery_name);
+        // On an organisation's site, its customers apply to it alone.
+        if (site.seller_org_id) seen.set(site.seller_org_id, site.name);
+        else for (const it of catalog) seen.set(it.nursery_org_id, it.nursery_name);
         setNurseries([...seen.entries()].map(([id, name]) => ({ id, name })));
+        if (site.seller_org_id) setNurseryId(site.seller_org_id);
         setRequests(reqs);
       })
       .catch((err) => {
@@ -59,7 +64,7 @@ export default function TradeAccountPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [site]);
 
   // Load the chosen nursery's wholesale tiers.
   useEffect(() => {

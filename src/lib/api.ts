@@ -36,6 +36,16 @@ export function setKnownSlug(slug: string) {
 }
 
 /**
+ * The storefront (sign-in, catalogue, orders) is the API's own routes, not
+ * /public/v2: the server finds an organisation's shop from the Origin. A local
+ * preview's Origin is localhost, so it names the site instead.
+ */
+export function shopSiteHeaders(): Record<string, string> {
+  if (SITE_TARGET.kind !== 'tenant' || !isLocalPreview() || !knownSlug) return {};
+  return { 'X-Shop-Site': knownSlug };
+}
+
+/**
  * Our site reads /public/... (v1), as it always has. An organisation's reads
  * /public/v2/..., found by the browser's Origin; locally, and for anything
  * that sends no Origin, by ?site=.

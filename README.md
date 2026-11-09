@@ -35,8 +35,12 @@ or the organisation's own domain (`HHjsFrontEnd/docs/tenant-websites-plan.md`).
 | `{slug}.factree.com.au` / `.factree.au`, any other domain | that organisation's | `/api/public/v2/*`, found by the browser's Origin |
 
 An organisation's site shows its catalogue, name, logo, colour, about and
-contact details, set in the app under Organisation Admin → Websites. It has no
-sign-in, ordering or harvest calendar until the Sales module brings a shop.
+contact details, set in the app under Organisation Admin → Websites. With
+**Shop** turned on there, it also has sign-in, a trade account application to
+that nursery, and ordering of that nursery's own stock, on account only (no
+online payment yet). The storefront calls carry no site: the API finds it from
+the Origin, or locally from the `X-Shop-Site` header (`shopSiteHeaders()` in
+`src/lib/api.ts`). It never has the harvest calendar.
 
 Locally, `http://localhost:5174/?site=<slug>` previews an organisation's site
 and remembers it for the tab; `?site=` goes back to ours.

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSite } from '../context/SiteContext';
 import { lookupCustomer, type CustomerType } from '../lib/auth';
 
 const TYPE_OPTIONS: { value: CustomerType; title: string; blurb: string }[] = [
@@ -22,6 +23,10 @@ const HOME_GARDEN_URL = 'https://home-garden.factree.com.au';
 export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const site = useSite();
+  // The customer-number lookup checks our own records; another nursery's
+  // customers apply for a trade account instead.
+  const ours = site.is_platform_site;
 
   const [customerType, setCustomerType] = useState<CustomerType | null>(null);
   const [form, setForm] = useState({
@@ -88,7 +93,7 @@ export default function RegisterPage() {
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
         password: form.password,
-        customer_number: form.customer_number.trim() || undefined,
+        customer_number: ours ? form.customer_number.trim() || undefined : undefined,
         customer_type: customerType,
       });
       navigate('/order', { replace: true });
@@ -129,10 +134,10 @@ export default function RegisterPage() {
           <Link to="/login" className="text-accent-700 underline">Sign in</Link>
         </p>
 
-        <div className="mt-10 rounded-sm border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-ink-muted">
+        {ours && <div className="mt-10 rounded-sm border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-ink-muted">
           We sell to commercial growers and the trade only. Home gardener? Find your trees and how to care for them at{' '}
           <a href={HOME_GARDEN_URL} className="text-accent-700 underline">home-garden.factree.com.au</a>.
-        </div>
+        </div>}
       </div>
     );
   }
@@ -156,8 +161,11 @@ export default function RegisterPage() {
       </div>
 
       <p className="mt-4 text-sm text-ink-muted leading-relaxed">
-        If you already deal with us, add your existing customer number and email and we'll connect your account to
-        your records. You can order once a nursery has approved your trade account.
+        {ours
+          ? <>If you already deal with us, add your existing customer number and email and we'll connect your account to
+            your records. You can order once a nursery has approved your trade account.</>
+          : <>Once your account is set up, apply for a trade account with {site.name}. You can order once they have
+            approved it.</>}
       </p>
 
       <form onSubmit={onSubmit} className="mt-10 space-y-5">
@@ -185,7 +193,7 @@ export default function RegisterPage() {
           <input type="password" required minLength={10} value={form.password} onChange={(e) => set('password', e.target.value)} className={fieldClass} />
           <span className="mt-1 block text-xs text-ink-muted">At least 10 characters.</span>
         </label>
-        <div className="space-y-2">
+        {ours && <div className="space-y-2">
           <label className="block">
             <span className="block text-sm text-ink-muted mb-1">Existing customer number <span className="text-ink-muted/70">(optional)</span></span>
             <input value={form.customer_number} onChange={(e) => set('customer_number', e.target.value)} className={fieldClass} />
@@ -213,7 +221,7 @@ export default function RegisterPage() {
           {lookupState === 'error' && (
             <div className="rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{lookupError}</div>
           )}
-        </div>
+        </div>}
         <button
           type="submit"
           disabled={submitting}

@@ -115,8 +115,10 @@ export interface PublicSite {
   name: string;
   kind: 'hosted' | 'external';
   is_platform_site: boolean;
-  /** Whether it sells online. Only ours, until the Sales module. */
+  /** Whether it has a shop: ours always; an organisation's once it turns it on (on account only). */
   shop: boolean;
+  /** The organisation that sells on an organisation's shop; null on ours. */
+  seller_org_id?: number | null;
   has_logo: boolean;
   branding: {
     header_text: string | null;

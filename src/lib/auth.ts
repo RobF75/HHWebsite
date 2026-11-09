@@ -1,4 +1,4 @@
-import { API_BASE } from './api';
+import { API_BASE, shopSiteHeaders } from './api';
 import type { ApiEnvelope, CurrentUser } from './types';
 
 // Access token lives in memory + localStorage; the refresh token is an
@@ -77,9 +77,10 @@ export async function lookupCustomer(customerNumber: string, email: string): Pro
 }
 
 export async function registerCustomer(payload: RegisterPayload): Promise<CurrentUser> {
+  // The server records where the customer signed up (the site's nursery, or us).
   const res = await fetch(`${API_BASE}/auth/register-customer`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...shopSiteHeaders() },
     credentials: 'include',
     body: JSON.stringify(payload),
   });
@@ -120,6 +121,7 @@ export async function authedFetch(path: string, init: RequestInit = {}): Promise
         Accept: 'application/json',
         ...(init.body ? { 'Content-Type': 'application/json' } : {}),
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        ...shopSiteHeaders(),
         ...(init.headers || {}),
       },
     });

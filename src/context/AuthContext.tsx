@@ -20,9 +20,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(shop);
 
   useEffect(() => {
-    // Accounts belong to a site with a shop: ours, for now. Another
-    // organisation's site has no sign-in, and its origin isn't allowed to
-    // call the auth API anyway.
+    // Accounts belong to a site with a shop: ours, and an organisation's
+    // once it turns its shop on. Without one there is no sign-in, and the
+    // API refuses that origin anyway.
     if (!shop) return;
     let cancelled = false;
     auth
