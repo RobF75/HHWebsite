@@ -113,7 +113,6 @@ export interface ApiEnvelope<T> {
 export interface PublicSite {
   slug: string;
   name: string;
-  kind: 'hosted' | 'external';
   is_platform_site: boolean;
   /** Whether it has a shop: ours always; an organisation's once it turns it on (on account only). */
   shop: boolean;

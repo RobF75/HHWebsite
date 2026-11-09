@@ -12,7 +12,6 @@ import type { PublicSite } from '../lib/types';
 const PLATFORM_SITE: PublicSite = {
   slug: 'factree',
   name: 'Factree',
-  kind: 'hosted',
   is_platform_site: true,
   shop: true,
   has_logo: false,
@@ -44,10 +43,10 @@ function SiteMessage({ title, body }: { title: string; body: string }) {
 
 export function SiteProvider({ children }: { children: ReactNode }) {
   const [site, setSite] = useState<PublicSite | null>(SITE_TARGET.kind === 'platform' ? PLATFORM_SITE : null);
-  const [failure, setFailure] = useState<'missing' | 'error' | null>(null);
+  const [failure, setFailure] = useState<'missing' | 'error' | null>(SITE_TARGET.kind === 'none' ? 'missing' : null);
 
   useEffect(() => {
-    if (SITE_TARGET.kind === 'platform') return;
+    if (SITE_TARGET.kind !== 'tenant') return;
     let cancelled = false;
     getSite()
       .then((s) => {

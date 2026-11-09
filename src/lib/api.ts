@@ -28,8 +28,8 @@ export class ApiError extends Error {
   }
 }
 
-// The organisation's slug once known: from the address, or from its site
-// record on its own domain. Images send no Origin, so they name the site.
+// The organisation's slug, from the address (or its site record, which has
+// the same). Images send no Origin, so they name the site.
 let knownSlug: string | null = SITE_TARGET.kind === 'tenant' ? SITE_TARGET.slug : null;
 export function setKnownSlug(slug: string) {
   knownSlug = slug;

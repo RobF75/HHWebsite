@@ -3,10 +3,12 @@
  * (HHjsFrontEnd docs/tenant-websites-plan.md).
  *
  * One build serves every site. Ours answers at website.factree.com.au (and,
- * later, factree.com.au); an organisation's at {slug}.factree.com.au or its
- * own domain. Ours reads the v1 public API exactly as before; any other reads
- * /api/public/v2, where the server works out the site from the browser's
- * Origin header.
+ * later, factree.com.au); an organisation's at {slug}.factree.com.au and
+ * nowhere else (Rob, 2026-11-09: a domain the organisation controls could
+ * carry a copy of the sign-in page, so no site lives on one). Ours reads the
+ * v1 public API exactly as before; an organisation's reads /api/public/v2,
+ * where the server works out the site from the browser's Origin header.
+ * Any other domain pointed at us shows no site and asks the API nothing.
  *
  * Local development: http://localhost:5174/?site=smiths previews a site and
  * remembers it for the tab; ?site= with no value goes back to ours.
@@ -14,8 +16,9 @@
 
 export type SiteTarget =
   | { kind: 'platform' }
-  // slug is null on an organisation's own domain: the server knows it from the Origin.
-  | { kind: 'tenant'; slug: string | null };
+  | { kind: 'tenant'; slug: string }
+  // A domain that is not ours: no site lives there.
+  | { kind: 'none' };
 
 export const BASE_DOMAINS = ['factree.com.au', 'factree.au'];
 
@@ -58,9 +61,9 @@ export function siteFromLocation(hostname: string, search: string): SiteTarget {
     }
   }
   // A machine name or an address (the dev box reached directly) is ours; any
-  // other domain is an organisation pointing its own domain at us.
+  // other domain is somebody pointing their own domain at us, and has no site.
   if (!host.includes('.') || /^[\d.]+$/.test(host)) return { kind: 'platform' };
-  return { kind: 'tenant', slug: null };
+  return { kind: 'none' };
 }
 
 export const SITE_TARGET: SiteTarget = siteFromLocation(window.location.hostname, window.location.search);
