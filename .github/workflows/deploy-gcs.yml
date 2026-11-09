@@ -76,7 +76,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          target=$(git log --first-parent -n 20 --format='%H %ae' | awk '$2 !~ /github-actions\[bot\]/ { print $1; exit }')
+          # awk reads every line rather than `exit`ing: with pipefail, an early
+          # exit leaves git log with SIGPIPE (141) and fails the gate.
+          target=$(git log --first-parent -n 20 --format='%H %ae' | awk '!found && $2 !~ /github-actions\[bot\]/ { print $1; found = 1 }')
           if [ -z "$target" ]; then
             echo "::error::No human-authored commit in the last 20 on this ref."
             exit 1
@@ -85,7 +87,7 @@ jobs:
             echo "HEAD $GITHUB_SHA was made by CI; checking the commit it sits on: $target"
           fi
           for id in $(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/deploy.yml/runs?head_sha=$target&per_page=20" --jq '.workflow_runs[].id'); do
-            if gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs" --jq '.jobs[] | select(.name == "verify") | .conclusion' | grep -qx success; then
+            if gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs" --jq '.jobs[] | select(.name == "verify") | .conclusion' | grep -x success >/dev/null; then
               echo "Dev verify passed for $target (run $id)"
               exit 0
             fi
