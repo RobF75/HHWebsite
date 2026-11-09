@@ -114,6 +114,15 @@ export function saveMyAddress(input: { stock_item_ids: number[]; product_ids?: n
   });
 }
 
+/**
+ * On a nursery's shop: put this account on the nursery's sign-ups worklist,
+ * unless it already has them as a customer, so its staff can match the
+ * account to the customer they already are. Does nothing on our own site.
+ */
+export function noteShopSignIn() {
+  return authedJson<{ listed: boolean }>('/nursery/shop-signup', { method: 'POST' });
+}
+
 export function getMyOrders() {
   return authedJson<MyOrder[]>('/nursery/my-orders');
 }

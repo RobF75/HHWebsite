@@ -2,20 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSite } from '../context/SiteContext';
-import { lookupCustomer, type CustomerType } from '../lib/auth';
-
-const TYPE_OPTIONS: { value: CustomerType; title: string; blurb: string }[] = [
-  {
-    value: 'grower',
-    title: 'Commercial grower',
-    blurb: 'Orchards and farms buying trees at trade pricing.',
-  },
-  {
-    value: 'garden_centre',
-    title: 'Garden centre or nursery',
-    blurb: 'Retail nurseries and garden centres buying wholesale to resell.',
-  },
-];
+import { lookupCustomer } from '../lib/auth';
 
 // This site is for trade only; home gardeners have their own.
 const HOME_GARDEN_URL = 'https://home-garden.factree.com.au';
@@ -24,11 +11,11 @@ export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
   const site = useSite();
-  // The customer-number lookup checks our own records; another nursery's
-  // customers apply for a trade account instead.
+  // The customer-number lookup checks our own records. On another nursery's
+  // shop the number is only passed on, to help its staff match the account to
+  // their customer record.
   const ours = site.is_platform_site;
 
-  const [customerType, setCustomerType] = useState<CustomerType | null>(null);
   const [form, setForm] = useState({
     business_name: '',
     contact_name: '',
@@ -83,7 +70,6 @@ export default function RegisterPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!customerType) return;
     setError(null);
     setSubmitting(true);
     try {
@@ -93,8 +79,11 @@ export default function RegisterPage() {
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
         password: form.password,
-        customer_number: ours ? form.customer_number.trim() || undefined : undefined,
-        customer_type: customerType,
+        customer_number: form.customer_number.trim() || undefined,
+        // Each site sells to one kind of customer, so nobody is asked. Ours is
+        // the commercial nursery: growers. The type lets the server match an
+        // existing customer number on ours; another nursery's site ignores it.
+        customer_type: ours ? 'grower' : undefined,
       });
       navigate('/order', { replace: true });
     } catch (err) {
@@ -107,65 +96,18 @@ export default function RegisterPage() {
   const fieldClass =
     'w-full rounded-sm border border-stone-300 px-3 py-2 text-sm focus:border-accent-700 focus:outline-none';
 
-  // Step 1 — choose the kind of customer before showing the form.
-  if (!customerType) {
-    return (
-      <div className="container-prose py-20 max-w-md">
-        <p className="text-[11px] uppercase tracking-[0.22em] text-accent-700 mb-4">Account</p>
-        <h1 className="font-serif text-4xl md:text-5xl tracking-tightish leading-[1.05]">Create an account</h1>
-        <p className="mt-4 text-sm text-ink-muted leading-relaxed">Tell us who's ordering so we can set you up correctly.</p>
-
-        <div className="mt-10 space-y-3">
-          {TYPE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setCustomerType(opt.value)}
-              className="w-full rounded-sm border border-stone-300 px-4 py-4 text-left transition-colors hover:border-accent-700 hover:bg-accent-50/40"
-            >
-              <span className="block text-sm font-medium text-ink">{opt.title}</span>
-              <span className="mt-0.5 block text-xs text-ink-muted">{opt.blurb}</span>
-            </button>
-          ))}
-        </div>
-
-        <p className="mt-6 text-sm text-ink-muted">
-          Already have an account?{' '}
-          <Link to="/login" className="text-accent-700 underline">Sign in</Link>
-        </p>
-
-        {ours && <div className="mt-10 rounded-sm border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-ink-muted">
-          We sell to commercial growers and the trade only. Home gardener? Find your trees and how to care for them at{' '}
-          <a href={HOME_GARDEN_URL} className="text-accent-700 underline">home-garden.factree.com.au</a>.
-        </div>}
-      </div>
-    );
-  }
-
-  const selected = TYPE_OPTIONS.find((o) => o.value === customerType)!;
-
   return (
     <div className="container-prose py-20 max-w-md">
       <p className="text-[11px] uppercase tracking-[0.22em] text-accent-700 mb-4">Account</p>
       <h1 className="font-serif text-4xl md:text-5xl tracking-tightish leading-[1.05]">Create an account</h1>
 
-      <div className="mt-4 flex items-center justify-between gap-3 rounded-sm border border-stone-200 bg-stone-50 px-4 py-2.5">
-        <span className="text-sm text-ink">{selected.title}</span>
-        <button
-          type="button"
-          onClick={() => setCustomerType(null)}
-          className="text-xs text-accent-700 underline"
-        >
-          Change
-        </button>
-      </div>
-
       <p className="mt-4 text-sm text-ink-muted leading-relaxed">
         {ours
           ? <>If you already deal with us, add your existing customer number and email and we'll connect your account to
             your records. You can order once a nursery has approved your trade account.</>
-          : <>Once your account is set up, apply for a trade account with {site.name}. You can order once they have
-            approved it.</>}
+          : <>If you already buy from {site.name}, add your customer number with them if you know it, and they'll
+            connect your account to your records. New customers can apply for a trade account once signed in.
+            You can order once {site.name} has connected or approved your account.</>}
       </p>
 
       <form onSubmit={onSubmit} className="mt-10 space-y-5">
@@ -193,6 +135,12 @@ export default function RegisterPage() {
           <input type="password" required minLength={10} value={form.password} onChange={(e) => set('password', e.target.value)} className={fieldClass} />
           <span className="mt-1 block text-xs text-ink-muted">At least 10 characters.</span>
         </label>
+        {!ours && (
+          <label className="block">
+            <span className="block text-sm text-ink-muted mb-1">Your customer number with {site.name} <span className="text-ink-muted/70">(optional)</span></span>
+            <input value={form.customer_number} onChange={(e) => set('customer_number', e.target.value)} className={fieldClass} />
+          </label>
+        )}
         {ours && <div className="space-y-2">
           <label className="block">
             <span className="block text-sm text-ink-muted mb-1">Existing customer number <span className="text-ink-muted/70">(optional)</span></span>
@@ -235,6 +183,11 @@ export default function RegisterPage() {
         Already have an account?{' '}
         <Link to="/login" className="text-accent-700 underline">Sign in</Link>
       </p>
+
+      {ours && <div className="mt-10 rounded-sm border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-ink-muted">
+        We sell to commercial growers and the trade only. Home gardener? Find your trees and how to care for them at{' '}
+        <a href={HOME_GARDEN_URL} className="text-accent-700 underline">home-garden.factree.com.au</a>.
+      </div>}
     </div>
   );
 }

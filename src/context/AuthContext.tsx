@@ -3,6 +3,7 @@ import type { CurrentUser } from '../lib/types';
 import * as auth from '../lib/auth';
 import type { RegisterPayload } from '../lib/auth';
 import { useSite } from './SiteContext';
+import { noteShopSignIn } from '../lib/storefront';
 
 interface AuthState {
   user: CurrentUser | null;
@@ -15,9 +16,17 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { shop } = useSite();
+  const { shop, is_platform_site: ours } = useSite();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(shop);
+
+  // Signed in on a nursery's shop: make sure the nursery can see this account
+  // on its sign-ups worklist. Best effort; nothing waits on it.
+  const userId = user?.id;
+  useEffect(() => {
+    if (!shop || ours || !userId) return;
+    noteShopSignIn().catch(() => {});
+  }, [shop, ours, userId]);
 
   useEffect(() => {
     // Accounts belong to a site with a shop: ours, and an organisation's

@@ -38,7 +38,9 @@ An organisation's site shows its catalogue, name, logo, colour, about and
 contact details, set in the app under Organisation Admin → Websites. With
 **Shop** turned on there, it also has sign-in, a trade account application to
 that nursery, and ordering of that nursery's own stock, on account only (no
-online payment yet). The storefront calls carry no site: the API finds it from
+online payment yet). The site chooses whether the shop lists its stock items,
+its umbrella products, or both (the default); the server leaves out, and refuses
+orders for, what it does not list. The storefront calls carry no site: the API finds it from
 the Origin, or locally from the `X-Shop-Site` header (`shopSiteHeaders()` in
 `src/lib/api.ts`). It never has the harvest calendar.
 

@@ -6,7 +6,6 @@ import {
   getNurseryTradeTiers,
 } from '../lib/storefront';
 import type { TradeAccountRequest, TradeTier } from '../lib/types';
-import { useAuth } from '../context/AuthContext';
 import { useSite } from '../context/SiteContext';
 
 interface NurseryOption {
@@ -22,7 +21,8 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function TradeAccountPage() {
   const site = useSite();
-  const { user } = useAuth();
+  // On an organisation's site its customers apply to it alone: no choosing.
+  const seller = site.seller_org_id;
 
   const [nurseries, setNurseries] = useState<NurseryOption[]>([]);
   const [requests, setRequests] = useState<TradeAccountRequest[]>([]);
@@ -31,7 +31,7 @@ export default function TradeAccountPage() {
 
   const [nurseryId, setNurseryId] = useState<number | ''>('');
   const [tierId, setTierId] = useState<number | ''>('');
-  const [businessName, setBusinessName] = useState(user?.organisation_name ?? '');
+  const [businessName, setBusinessName] = useState('');
   const [abn, setAbn] = useState('');
   const [phone, setPhone] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -94,7 +94,7 @@ export default function TradeAccountPage() {
   async function submit() {
     setError(null);
     if (nurseryId === '' || !businessName.trim()) {
-      setError('Please choose a nursery and enter your business name.');
+      setError(seller ? 'Please enter your business name.' : 'Please choose a nursery and enter your business name.');
       return;
     }
     setSubmitting(true);
@@ -110,8 +110,8 @@ export default function TradeAccountPage() {
       });
       setRequests((r) => [created, ...r]);
       setSuccess(true);
-      setNurseryId('');
-      setBusinessName(user?.organisation_name ?? '');
+      if (!seller) setNurseryId('');
+      setBusinessName('');
       setAbn('');
       setPhone('');
       setDeliveryAddress('');
@@ -128,8 +128,9 @@ export default function TradeAccountPage() {
       <p className="text-[11px] uppercase tracking-[0.22em] text-accent-700 mb-4">Wholesale</p>
       <h1 className="font-serif text-4xl md:text-5xl tracking-tightish leading-[1.05]">Trade account</h1>
       <p className="mt-3 max-w-prose text-sm text-ink-muted leading-relaxed">
-        Garden centres and commercial growers need a trade account to order online. The nursery
-        reviews your application and sets your trade pricing; you can order once it is approved.
+        Garden centres and commercial growers need a trade account to order online.{' '}
+        {seller ? site.name : 'The nursery'} reviews your application and sets your trade pricing; you can
+        order once it is approved.
       </p>
 
       {loading && <p className="mt-12 text-ink-muted">Loading…</p>}
@@ -138,7 +139,7 @@ export default function TradeAccountPage() {
         <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
           {/* Application form */}
           <div className="rounded-sm border border-stone-200 bg-white p-6">
-            <h2 className="font-serif text-xl mb-4">Apply</h2>
+            <h2 className="font-serif text-xl mb-4">{seller ? `Apply to ${site.name}` : 'Apply'}</h2>
 
             {success && (
               <div className="mb-4 rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
@@ -146,7 +147,13 @@ export default function TradeAccountPage() {
               </div>
             )}
 
-            <label className="block mb-3">
+            {seller && pendingNurseryIds.has(seller) && (
+              <p className="mb-4 text-sm text-ink-muted">
+                Your application to {site.name} is waiting for them to review it.
+              </p>
+            )}
+
+            {!seller && <label className="block mb-3">
               <span className="block text-xs text-ink-muted mb-1">Nursery</span>
               <select
                 value={nurseryId}
@@ -160,7 +167,7 @@ export default function TradeAccountPage() {
                   </option>
                 ))}
               </select>
-            </label>
+            </label>}
 
             {tiers.length > 0 && (
               <label className="block mb-3">
@@ -183,6 +190,7 @@ export default function TradeAccountPage() {
               <input
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
+                placeholder="Your business name"
                 className="w-full rounded-sm border border-stone-300 px-2 py-1.5 text-sm focus:border-accent-700 focus:outline-none"
               />
             </label>
@@ -231,7 +239,7 @@ export default function TradeAccountPage() {
 
             <button
               type="button"
-              disabled={submitting}
+              disabled={submitting || (!!seller && pendingNurseryIds.has(seller))}
               onClick={submit}
               className="w-full rounded-sm bg-accent-700 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-800 disabled:opacity-50"
             >
@@ -244,7 +252,8 @@ export default function TradeAccountPage() {
             <h2 className="font-serif text-xl mb-4">Your applications</h2>
             {requests.length === 0 ? (
               <p className="text-sm text-ink-muted">
-                You haven't applied yet. Apply above: you can order online once the nursery approves your trade account.
+                You haven't applied yet. You can order online once {seller ? site.name : 'the nursery'} approves
+                your trade account.
               </p>
             ) : (
               <ul className="space-y-3">
