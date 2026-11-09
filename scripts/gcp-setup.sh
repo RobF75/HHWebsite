@@ -84,6 +84,30 @@ gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" \
   --project="$PROJECT" \
   --quiet
 
+# The deploy's CDN invalidate step needs compute.urlMaps.invalidateCache.
+# A custom role carrying only that permission, rather than the much broader
+# roles/compute.loadBalancerAdmin. The workflow passes --async, so it never
+# polls the operation and needs nothing else.
+CDN_ROLE="cdnInvalidator"
+if gcloud iam roles describe "$CDN_ROLE" --project="$PROJECT" >/dev/null 2>&1; then
+  echo "==> Custom role $CDN_ROLE already exists, skipping create."
+else
+  echo "==> Creating custom role $CDN_ROLE ..."
+  gcloud iam roles create "$CDN_ROLE" \
+    --project="$PROJECT" \
+    --title="CDN cache invalidator" \
+    --description="Invalidate Cloud CDN cache on url-maps (website deploys)" \
+    --permissions="compute.urlMaps.invalidateCache" \
+    --stage=GA
+fi
+
+echo "==> Granting $DEPLOY_SA $CDN_ROLE on project $PROJECT ..."
+gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member="serviceAccount:$DEPLOY_SA" \
+  --role="projects/$PROJECT/roles/$CDN_ROLE" \
+  --condition=None \
+  --quiet >/dev/null
+
 # -----------------------------------------------------------------------------
 # 5. LB host rule — only run if URL_MAP env var is set.
 # -----------------------------------------------------------------------------

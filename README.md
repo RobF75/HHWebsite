@@ -184,9 +184,13 @@ gcloud compute url-maps add-path-matcher "$URL_MAP" \
 gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" \
   --member="serviceAccount:github-deployer@$PROJECT.iam.gserviceaccount.com" \
   --role="roles/storage.objectAdmin"
+# CDN invalidation: a custom role with only compute.urlMaps.invalidateCache.
+gcloud iam roles create cdnInvalidator --project="$PROJECT" \
+  --title="CDN cache invalidator" \
+  --permissions="compute.urlMaps.invalidateCache" --stage=GA
 gcloud projects add-iam-policy-binding "$PROJECT" \
   --member="serviceAccount:github-deployer@$PROJECT.iam.gserviceaccount.com" \
-  --role="roles/compute.loadBalancerAdmin"   # for CDN invalidation
+  --role="projects/$PROJECT/roles/cdnInvalidator" --condition=None
 ```
 
 **Required GitHub secrets** (set on RobF75/HHWebsite — same conventions as the other repos):
@@ -195,7 +199,7 @@ gcloud projects add-iam-policy-binding "$PROJECT" \
 |---|---|
 | `GCP_PROJECT_ID` | `factree-prod` |
 | `GCP_REGION` | `australia-southeast1` |
-| `GCP_SA_KEY` | Service-account JSON (storage objectAdmin + compute loadBalancerAdmin) |
+| `GCP_SA_KEY` | Service-account JSON (storage objectAdmin + the `cdnInvalidator` custom role) |
 | `GCS_WEBSITE_BUCKET` | `factree-prod-website` (no `gs://`) |
 | `GCS_WEBSITE_URL_MAP` | The existing LB url-map name (e.g. `hh-lb-url-map`). Leave unset for the very first deploy if the LB isn't wired yet — the cache-invalidate step will skip. |
 | `BACKEND_URL` | `https://api.factree.com.au` — same secret HHjsFrontEnd uses |
