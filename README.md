@@ -54,6 +54,7 @@ and remembers it for the tab; `?site=` goes back to ours.
 | Species nav + counts | `GET /api/public/species` |
 | Species listing | `GET /api/public/cultivars?species=<slug>` |
 | Cultivar detail | `GET /api/public/cultivars/:id` |
+| Products on a species page, a product's page (`/product/:id`) | `GET /api/public/v2/products?species=<slug>`, `/products/:id`: umbrella products the organisation listed on its site, with the shop on and no customer tier limit, and no price. Our own site has none |
 | Hero / gallery images | `GET /api/public/media/:id/file` |
 | Harvest calendar | `GET /api/public/maturity-chart` |
 | An organisation's site | `GET /api/public/v2/site`, then the same paths under `/api/public/v2` |

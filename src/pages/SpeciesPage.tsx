@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { listCultivars } from '../lib/api';
+import { listCultivars, listProducts } from '../lib/api';
 import { useSpecies } from '../hooks/useSpecies';
-import type { PublicCultivarSummary } from '../lib/types';
+import type { PublicCultivarSummary, PublicProduct } from '../lib/types';
 import CultivarCard from '../components/CultivarCard';
+import ProductCard from '../components/ProductCard';
 import PbrNotice from '../components/PbrNotice';
 import { isPbrProtected } from '../lib/pbr';
 
@@ -11,6 +12,7 @@ export default function SpeciesPage() {
   const { speciesSlug } = useParams<{ speciesSlug: string }>();
   const { species, loading: speciesLoading } = useSpecies();
   const [cultivars, setCultivars] = useState<PublicCultivarSummary[]>([]);
+  const [products, setProducts] = useState<PublicProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [roleFilter, setRoleFilter] = useState<'all' | 'scion' | 'rootstock'>('all');
@@ -25,8 +27,13 @@ export default function SpeciesPage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    listCultivars(speciesSlug)
-      .then((data) => { if (!cancelled) setCultivars(data); })
+    // Products are extra: a failure there still shows the cultivars.
+    Promise.all([listCultivars(speciesSlug), listProducts(speciesSlug).catch(() => [] as PublicProduct[])])
+      .then(([cultivarData, productData]) => {
+        if (cancelled) return;
+        setCultivars(cultivarData);
+        setProducts(productData);
+      })
       .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -73,10 +80,25 @@ export default function SpeciesPage() {
           <div className="text-sm text-ink-muted">Loading…</div>
         ) : error ? (
           <div className="text-sm text-red-700">{error}</div>
-        ) : filtered.length === 0 ? (
+        ) : filtered.length === 0 && (products.length === 0 || roleFilter === 'rootstock') ? (
           <div className="text-sm text-ink-muted">No cultivars to display.</div>
         ) : (
           <>
+            {/* Products are trees for sale, not a scion or a rootstock: shown
+                unless the list is narrowed to rootstocks. */}
+            {products.length > 0 && roleFilter !== 'rootstock' && (
+              <section className="mb-16">
+                <h2 className="font-serif text-2xl tracking-tightish mb-8">Products</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+                  {products.map((p) => (
+                    <ProductCard key={p.id} product={p} />
+                  ))}
+                </div>
+              </section>
+            )}
+            {filtered.length > 0 && products.length > 0 && roleFilter !== 'rootstock' && (
+              <h2 className="font-serif text-2xl tracking-tightish mb-8">Cultivars</h2>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
               {filtered.map((c) => (
                 <CultivarCard key={c.id} cultivar={c} />

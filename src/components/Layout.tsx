@@ -180,7 +180,7 @@ function SpeciesDropdown({ group }: { group: SpeciesGroup }) {
                   >
                     <span className="font-serif">{s.name}</span>
                     <span className="text-[10px] uppercase tracking-[0.14em] text-ink-muted">
-                      {s.cultivar_count}
+                      {s.cultivar_count + (s.product_count ?? 0)}
                     </span>
                   </NavLink>
                 </li>

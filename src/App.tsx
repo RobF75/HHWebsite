@@ -5,6 +5,7 @@ import RequireSite from './components/RequireSite';
 import HomePage from './pages/HomePage';
 import SpeciesPage from './pages/SpeciesPage';
 import CultivarPage from './pages/CultivarPage';
+import ProductPage from './pages/ProductPage';
 import HarvestCalendarPage from './pages/HarvestCalendarPage';
 import AboutPage from './pages/AboutPage';
 import ContactPage from './pages/ContactPage';
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="account/orders" element={<RequireSite feature="shop"><RequireAuth><MyOrdersPage /></RequireAuth></RequireSite>} />
         <Route path="account/trade" element={<RequireSite feature="shop"><RequireAuth><TradeAccountPage /></RequireAuth></RequireSite>} />
         <Route path="cultivar/:id" element={<CultivarPage />} />
+        <Route path="product/:id" element={<ProductPage />} />
         {/* Must stay above :speciesSlug conceptually — a static segment outranks
             a dynamic one in the router's own scoring, but leaving it below would
             read as though "harvest-calendar" were a species. */}

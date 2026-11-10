@@ -4,6 +4,8 @@ import type {
   PublicCultivarSummary,
   PublicMaturityChart,
   PublicMaturityFilters,
+  PublicProduct,
+  PublicProductDetail,
   PublicSite,
   PublicSpecies,
 } from './types';
@@ -89,6 +91,35 @@ export function listCultivars(speciesSlug?: string) {
 
 export function getCultivar(id: number) {
   return getJson<PublicCultivarDetail>(publicPath(`/cultivars/${id}`));
+}
+
+/**
+ * Umbrella products the site lists publicly. Only an organisation's site has
+ * any; ours, and a server older than 2026-11-11, answer with none.
+ */
+export async function listProducts(speciesSlug?: string): Promise<PublicProduct[]> {
+  if (SITE_TARGET.kind === 'platform') return [];
+  const qs = speciesSlug ? `?species=${encodeURIComponent(speciesSlug)}` : '';
+  try {
+    return await getJson<PublicProduct[]>(publicPath(`/products${qs}`));
+  } catch (err) {
+    // An older server has no such route: no products, the cultivars still show.
+    if (err instanceof ApiError && err.status === 404) return [];
+    throw err;
+  }
+}
+
+export function getProduct(id: number) {
+  return getJson<PublicProductDetail>(publicPath(`/products/${id}`));
+}
+
+/** "3 cultivars · 2 products", for a species tile. */
+export function speciesCountText(s: PublicSpecies): string {
+  const parts: string[] = [];
+  if (s.cultivar_count > 0) parts.push(`${s.cultivar_count} cultivar${s.cultivar_count === 1 ? '' : 's'}`);
+  const products = s.product_count ?? 0;
+  if (products > 0) parts.push(`${products} product${products === 1 ? '' : 's'}`);
+  return parts.join(' · ');
 }
 
 /**

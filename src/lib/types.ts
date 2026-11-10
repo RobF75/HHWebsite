@@ -9,6 +9,37 @@ export interface PublicSpecies {
   parent_name: string | null;
   parent_slug: string | null;
   cultivar_count: number;
+  // Umbrella products shown on the site under this crop. Absent from a server
+  // older than 2026-11-11, and always 0 on our own site.
+  product_count?: number;
+}
+
+/**
+ * An umbrella product an organisation's site shows publicly ("Dwarf Eureka
+ * Lemon"): one name over several stock items. No price: that is for signed-in
+ * trade customers on the Order page. The picture is a member cultivar's.
+ */
+export interface PublicProduct {
+  id: number;
+  name: string;
+  description: string | null;
+  tree_type_name: string | null;
+  crop_type_id: number | null;
+  crop_type_name: string | null;
+  crop_type_slug: string | null;
+  tag_colour_name: string | null;
+  tag_colour_hex: string | null;
+  hero_media_id: number | null;
+}
+
+export interface PublicProductDetail extends PublicProduct {
+  // Member varieties published on this site, to read about. Others are not named.
+  cultivars: Array<{
+    id: number;
+    name: string;
+    trade_name: string | null;
+    protection_status: string | null;
+  }>;
 }
 
 export interface PublicCultivarSummary {

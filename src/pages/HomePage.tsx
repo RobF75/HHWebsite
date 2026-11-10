@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { useSpecies } from '../hooks/useSpecies';
-import { listCultivars, mediaUrl } from '../lib/api';
+import { listCultivars, mediaUrl, speciesCountText } from '../lib/api';
 import type { PublicCultivarSummary, PublicSpecies } from '../lib/types';
 import PbrMark from '../components/PbrMark';
 import PbrNotice from '../components/PbrNotice';
@@ -116,7 +116,7 @@ function SpeciesGrid() {
                   >
                     <div className="font-serif text-2xl tracking-tightish text-ink group-hover:text-accent-700">{s.name}</div>
                     <div className="mt-2 text-xs uppercase tracking-[0.15em] text-ink-muted">
-                      {s.cultivar_count} cultivar{s.cultivar_count === 1 ? '' : 's'}
+                      {speciesCountText(s)}
                     </div>
                   </Link>
                 ))}
