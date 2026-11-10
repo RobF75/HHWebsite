@@ -375,7 +375,10 @@ export default function OrderPage() {
                       <PbrMark status={it.cultivar_protection_status} />
                     </div>
                     <div className="text-xs text-ink-muted mt-0.5">
-                      {it.tree_type_name}
+                      {/* Merchandise (fertiliser, pots) has no tree type: its category and unit. */}
+                      {it.item_kind === 'merchandise'
+                        ? [it.category_name || 'Supplies', it.item_unit ? `per ${it.item_unit}` : null].filter(Boolean).join(' · ')
+                        : it.tree_type_name}
                       {it.species_name ? ` · ${it.species_name}` : ''}
                       {it.sku_code ? ` · ${it.sku_code}` : ''}
                       {hasBreaks ? ' · volume pricing' : ''}

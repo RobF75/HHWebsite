@@ -6,6 +6,8 @@ import HomePage from './pages/HomePage';
 import SpeciesPage from './pages/SpeciesPage';
 import CultivarPage from './pages/CultivarPage';
 import ProductPage from './pages/ProductPage';
+import SuppliesPage from './pages/SuppliesPage';
+import SupplyPage from './pages/SupplyPage';
 import HarvestCalendarPage from './pages/HarvestCalendarPage';
 import AboutPage from './pages/AboutPage';
 import ContactPage from './pages/ContactPage';
@@ -30,6 +32,10 @@ export default function App() {
         <Route path="account/trade" element={<RequireSite feature="shop"><RequireAuth><TradeAccountPage /></RequireAuth></RequireSite>} />
         <Route path="cultivar/:id" element={<CultivarPage />} />
         <Route path="product/:id" element={<ProductPage />} />
+        {/* A static segment, so it outranks :speciesSlug; a crop called
+            "Supplies" would be shadowed, which no crop is. */}
+        <Route path="supplies" element={<SuppliesPage />} />
+        <Route path="supplies/:id" element={<SupplyPage />} />
         {/* Must stay above :speciesSlug conceptually — a static segment outranks
             a dynamic one in the router's own scoring, but leaving it below would
             read as though "harvest-calendar" were a species. */}

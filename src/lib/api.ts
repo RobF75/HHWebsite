@@ -4,6 +4,7 @@ import type {
   PublicCultivarSummary,
   PublicMaturityChart,
   PublicMaturityFilters,
+  PublicMerchandise,
   PublicProduct,
   PublicProductDetail,
   PublicSite,
@@ -111,6 +112,32 @@ export async function listProducts(speciesSlug?: string): Promise<PublicProduct[
 
 export function getProduct(id: number) {
   return getJson<PublicProductDetail>(publicPath(`/products/${id}`));
+}
+
+/**
+ * Merchandise the site shows publicly (fertiliser, pots). Only an
+ * organisation's site has any; ours, and a server older than 2026-11-11,
+ * answer with none.
+ */
+export async function listMerchandise(): Promise<PublicMerchandise[]> {
+  if (SITE_TARGET.kind === 'platform') return [];
+  try {
+    return await getJson<PublicMerchandise[]>(publicPath('/merchandise'));
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return [];
+    throw err;
+  }
+}
+
+export function getMerchandise(id: number) {
+  return getJson<PublicMerchandise>(publicPath(`/merchandise/${id}`));
+}
+
+/** The item's picture, or null. The version busts an old cached copy. */
+export function merchandiseImageUrl(item: Pick<PublicMerchandise, 'id' | 'has_image' | 'image_version'>): string | null {
+  if (!item.has_image) return null;
+  const base = `${API_BASE}${publicPath(`/merchandise/${item.id}/image`, { noOrigin: true })}`;
+  return item.image_version ? `${base}${base.includes('?') ? '&' : '?'}v=${item.image_version}` : base;
 }
 
 /** "3 cultivars · 2 products", for a species tile. */

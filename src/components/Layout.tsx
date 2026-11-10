@@ -1,6 +1,7 @@
 import { Outlet, NavLink, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSpecies } from '../hooks/useSpecies';
+import { useMerchandise } from '../hooks/useMerchandise';
 import { useAuth } from '../context/AuthContext';
 import { useSite } from '../context/SiteContext';
 import { siteLogoUrl } from '../lib/api';
@@ -199,6 +200,7 @@ function Header() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const groups = useMemo(() => groupSpeciesByParent(species), [species]);
+  const hasSupplies = useMerchandise().items.length > 0;
 
   useEffect(() => {
     setOpen(false);
@@ -223,6 +225,7 @@ function Header() {
             )
           )}
           {site.is_platform_site && <NavLink to="/harvest-calendar" className={navLinkClass}>Harvest calendar</NavLink>}
+          {hasSupplies && <NavLink to="/supplies" className={navLinkClass}>Supplies</NavLink>}
           <span className="h-4 w-px bg-stone-300" aria-hidden />
           <NavLink to="/about" className={navLinkClass}>About</NavLink>
           <NavLink to="/contact" className={navLinkClass}>Contact</NavLink>
@@ -265,6 +268,7 @@ function Header() {
               )
             )}
             {site.is_platform_site && <NavLink to="/harvest-calendar" className={navLinkClass}>Harvest calendar</NavLink>}
+            {hasSupplies && <NavLink to="/supplies" className={navLinkClass}>Supplies</NavLink>}
             <hr className="border-stone-200" />
             <NavLink to="/about" className={navLinkClass}>About</NavLink>
             <NavLink to="/contact" className={navLinkClass}>Contact</NavLink>

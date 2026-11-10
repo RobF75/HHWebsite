@@ -32,6 +32,24 @@ export interface PublicProduct {
   hero_media_id: number | null;
 }
 
+/**
+ * Merchandise an organisation's site shows publicly (fertiliser, potting mix,
+ * pots), grouped by the shop's own category. No price: that is for signed-in
+ * trade customers on the Order page.
+ */
+export interface PublicMerchandise {
+  id: number;
+  name: string;
+  description: string | null;
+  unit: string | null;
+  category_id: number | null;
+  category_name: string | null;
+  category_slug: string | null;
+  has_image: boolean;
+  // Changes with the picture, so an old cached copy is not shown.
+  image_version: number | null;
+}
+
 export interface PublicProductDetail extends PublicProduct {
   // Member varieties published on this site, to read about. Others are not named.
   cultivars: Array<{
@@ -199,17 +217,22 @@ export interface CatalogItem {
   nursery_customer_id: number | null;
   // An approved trade account with this nursery; without one the item can't be ordered.
   trade_account: boolean;
-  cultivar_id: number;
+  // Null on merchandise (fertiliser, pots), which has no cultivar.
+  cultivar_id: number | null;
   cultivar_name: string;
   cultivar_trade_name: string | null;
   cultivar_protection_status: string | null;
   website_tagline: string | null;
   website_hero_media_id: number | null;
   rootstock_name: string | null;
-  tree_type_code: string;
-  tree_type_name: string;
-  stock_type: 'B' | 'P';
+  tree_type_code: string | null;
+  tree_type_name: string | null;
+  stock_type: 'B' | 'P' | null;
   species_name: string | null;
+  // Merchandise only (2026-11-11): cultivar_name carries its name.
+  item_kind?: 'merchandise';
+  item_unit?: string | null;
+  category_name?: string | null;
 }
 
 export interface MyOrderLine {
