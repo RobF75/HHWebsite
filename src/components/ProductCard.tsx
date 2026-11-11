@@ -1,26 +1,32 @@
 import { Link } from 'react-router-dom';
-import type { PublicProduct } from '../lib/types';
+import type { ProductGroup } from '../lib/productGroups';
 import { CARD_SIZES, mediaSrcSet, mediaUrl } from '../lib/api';
 
 interface Props {
-  product: PublicProduct;
+  group: ProductGroup;
 }
 
-/** A product on a species page, beside the cultivar cards. */
-export default function ProductCard({ product }: Props) {
-  const hero = mediaUrl(product.hero_media_id, 800);
+/**
+ * A variety for sale on a species page, beside the cultivar cards: one card
+ * for all its pot sizes, opening the smallest (its page links the others).
+ */
+export default function ProductCard({ group }: Props) {
+  const first = group.products[0];
+  const hero = mediaUrl(group.hero_media_id, 800);
+  const sizes = group.products.map((p) => p.tree_type_name).filter((s): s is string => !!s);
+  const description = group.products.find((p) => p.description)?.description;
   return (
     <Link
-      to={`/product/${product.id}`}
+      to={`/product/${first.id}`}
       className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 rounded"
     >
       <div className="aspect-[4/5] overflow-hidden rounded bg-stone-100">
         {hero ? (
           <img
             src={hero}
-            srcSet={mediaSrcSet(product.hero_media_id)}
+            srcSet={mediaSrcSet(group.hero_media_id)}
             sizes={CARD_SIZES}
-            alt={product.name}
+            alt={group.name}
             loading="lazy"
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
           />
@@ -31,12 +37,12 @@ export default function ProductCard({ product }: Props) {
         )}
       </div>
       <div className="mt-4">
-        <h3 className="font-serif text-xl tracking-tightish break-words">{product.name}</h3>
-        {product.tree_type_name && (
-          <p className="mt-1 text-xs uppercase tracking-[0.14em] text-ink-muted">{product.tree_type_name}</p>
+        <h3 className="font-serif text-xl tracking-tightish break-words">{group.name}</h3>
+        {sizes.length > 0 && (
+          <p className="mt-1 text-xs uppercase tracking-[0.14em] text-ink-muted">{sizes.join(' · ')}</p>
         )}
-        {product.description && (
-          <p className="mt-2 text-sm text-ink-muted leading-relaxed line-clamp-3">{product.description}</p>
+        {description && (
+          <p className="mt-2 text-sm text-ink-muted leading-relaxed line-clamp-3">{description}</p>
         )}
       </div>
     </Link>

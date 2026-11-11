@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getProduct, mediaSrcSet, mediaUrl } from '../lib/api';
-import type { PublicProductDetail } from '../lib/types';
+import { getProduct, listProducts, mediaSrcSet, mediaUrl } from '../lib/api';
+import type { PublicProduct, PublicProductDetail } from '../lib/types';
+import { sizesOf } from '../lib/productGroups';
 import PbrMark from '../components/PbrMark';
 import PbrNotice from '../components/PbrNotice';
 import ShopOrderCta from '../components/ShopOrderCta';
@@ -13,6 +14,8 @@ export default function ProductPage() {
   const [product, setProduct] = useState<PublicProductDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // The same variety in its other pot sizes, each a product of its own.
+  const [sizes, setSizes] = useState<PublicProduct[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -25,6 +28,17 @@ export default function ProductPage() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [id]);
+
+  const slug = product?.crop_type_slug;
+  useEffect(() => {
+    if (!product || !slug) { setSizes([]); return; }
+    let cancelled = false;
+    // Extra: a failure just leaves the size chooser out.
+    listProducts(slug)
+      .then((all) => { if (!cancelled) setSizes(sizesOf(product, all)); })
+      .catch(() => { if (!cancelled) setSizes([]); });
+    return () => { cancelled = true; };
+  }, [product, slug]);
 
   if (loading) {
     return <div className="container-prose py-32 text-sm text-ink-muted">Loading…</div>;
@@ -52,7 +66,19 @@ export default function ProductPage() {
           )}
         </div>
         <h1 className="font-serif text-5xl md:text-7xl tracking-tightish leading-[1.05] break-words">{product.name}</h1>
-        {product.tree_type_name && (
+        {sizes.length > 1 ? (
+          <div className="mt-5 flex flex-wrap gap-2" aria-label="Sizes">
+            {sizes.map((s) => s.id === product.id ? (
+              <span key={s.id} aria-current="page" className="px-4 py-2 text-sm rounded-sm border border-ink bg-ink text-stone-50">
+                {s.tree_type_name ?? 'This size'}
+              </span>
+            ) : (
+              <Link key={s.id} to={`/product/${s.id}`} className="px-4 py-2 text-sm rounded-sm border border-stone-300 bg-white text-ink-muted hover:text-ink hover:border-ink">
+                {s.tree_type_name ?? 'Other size'}
+              </Link>
+            ))}
+          </div>
+        ) : product.tree_type_name && (
           <p className="mt-4 text-xl text-ink-muted">{product.tree_type_name}</p>
         )}
       </div>

@@ -7,6 +7,7 @@ import CultivarCard from '../components/CultivarCard';
 import ProductCard from '../components/ProductCard';
 import PbrNotice from '../components/PbrNotice';
 import { isPbrProtected } from '../lib/pbr';
+import { groupProducts } from '../lib/productGroups';
 
 export default function SpeciesPage() {
   const { speciesSlug } = useParams<{ speciesSlug: string }>();
@@ -40,6 +41,7 @@ export default function SpeciesPage() {
   }, [speciesSlug]);
 
   const filtered = cultivars.filter((c) => roleFilter === 'all' ? true : c.cultivar_role === roleFilter);
+  const productGroups = useMemo(() => groupProducts(products), [products]);
   const hasRootstocks = cultivars.some((c) => c.cultivar_role === 'rootstock');
 
   if (!speciesLoading && species.length > 0 && !current) {
@@ -90,8 +92,8 @@ export default function SpeciesPage() {
               <section className="mb-16">
                 <h2 className="font-serif text-2xl tracking-tightish mb-8">Products</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
-                  {products.map((p) => (
-                    <ProductCard key={p.id} product={p} />
+                  {productGroups.map((g) => (
+                    <ProductCard key={g.key} group={g} />
                   ))}
                 </div>
               </section>
