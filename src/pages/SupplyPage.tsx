@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getMerchandise, merchandiseImageUrl } from '../lib/api';
+import { getMerchandise, merchandiseImageUrl, merchandiseSrcSet } from '../lib/api';
 import type { PublicMerchandise } from '../lib/types';
 import ShopOrderCta from '../components/ShopOrderCta';
 import PhotoCarousel from '../components/PhotoCarousel';
@@ -54,7 +54,7 @@ export default function SupplyPage() {
         <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_17rem] lg:grid-cols-[minmax(0,1fr)_20rem] gap-10 lg:gap-12">
           {img && (
             <div className="min-w-0">
-              <PhotoCarousel key={item.id} photos={[{ src: img, alt: item.name }]} />
+              <PhotoCarousel key={item.id} photos={[{ src: img, srcSet: merchandiseSrcSet(item), alt: item.name }]} />
             </div>
           )}
 

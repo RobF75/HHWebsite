@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { useSpecies } from '../hooks/useSpecies';
-import { listCultivars, mediaUrl, speciesCountText } from '../lib/api';
+import { CARD_SIZES, listCultivars, mediaSrcSet, mediaUrl, speciesCountText } from '../lib/api';
 import type { PublicCultivarSummary, PublicSpecies } from '../lib/types';
 import PbrMark from '../components/PbrMark';
 import PbrNotice from '../components/PbrNotice';
@@ -155,7 +155,9 @@ function Featured() {
               <div className="aspect-[4/5] overflow-hidden rounded bg-stone-100">
                 {c.hero_media_id && (
                   <img
-                    src={mediaUrl(c.hero_media_id)!}
+                    src={mediaUrl(c.hero_media_id, 800)!}
+                    srcSet={mediaSrcSet(c.hero_media_id)}
+                    sizes={CARD_SIZES}
                     alt={c.name}
                     loading="lazy"
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { merchandiseImageUrl } from '../lib/api';
+import { CARD_SIZES, merchandiseImageUrl, merchandiseSrcSet } from '../lib/api';
 import { useMerchandise } from '../hooks/useMerchandise';
 import type { PublicMerchandise } from '../lib/types';
 
@@ -22,7 +22,7 @@ function byCategory(items: PublicMerchandise[]) {
 }
 
 export function SupplyCard({ item }: { item: PublicMerchandise }) {
-  const img = merchandiseImageUrl(item);
+  const img = merchandiseImageUrl(item, 800);
   return (
     <Link
       to={`/supplies/${item.id}`}
@@ -32,6 +32,8 @@ export function SupplyCard({ item }: { item: PublicMerchandise }) {
         {img ? (
           <img
             src={img}
+            srcSet={merchandiseSrcSet(item)}
+            sizes={CARD_SIZES}
             alt={item.name}
             loading="lazy"
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"

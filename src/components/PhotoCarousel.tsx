@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { PAGE_PHOTO_SIZES } from '../lib/api';
 
 export interface CarouselPhoto {
   src: string;
+  /** The photo at each width the API serves (mediaSrcSet), so a phone gets a small one. */
+  srcSet?: string;
   alt: string;
   caption?: string | null;
 }
@@ -73,6 +76,8 @@ export default function PhotoCarousel({ photos, interval = 6000 }: PhotoCarousel
           <img
             key={`${p.src}-${i}`}
             src={p.src}
+            srcSet={p.srcSet}
+            sizes={p.srcSet ? PAGE_PHOTO_SIZES : undefined}
             alt={p.alt}
             loading={i === 0 ? 'eager' : 'lazy'}
             decoding="async"

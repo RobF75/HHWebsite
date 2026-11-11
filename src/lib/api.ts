@@ -133,11 +133,47 @@ export function getMerchandise(id: number) {
   return getJson<PublicMerchandise>(publicPath(`/merchandise/${id}`));
 }
 
-/** The item's picture, or null. The version busts an old cached copy. */
-export function merchandiseImageUrl(item: Pick<PublicMerchandise, 'id' | 'has_image' | 'image_version'>): string | null {
-  if (!item.has_image) return null;
+/**
+ * The widths the API serves a photo at (HHNodeServer utils/photoSizes.js).
+ * It makes each the first time it is asked for and keeps it; any other width
+ * is answered with the next one up, so ask for these only.
+ */
+export const PHOTO_WIDTHS = [400, 800, 1200, 2000] as const;
+export type PhotoWidth = (typeof PHOTO_WIDTHS)[number];
+
+/** `sizes` for a card in a grid of up to four columns. */
+export const CARD_SIZES = '(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw';
+/** `sizes` for the photo on a cultivar, product or supply page. */
+export const PAGE_PHOTO_SIZES = '(min-width: 1024px) 60vw, 100vw';
+
+function withQuery(url: string, key: string, value: string | number): string {
+  return `${url}${url.includes('?') ? '&' : '?'}${key}=${value}`;
+}
+
+/** "url?w=400 400w, …" for an <img srcSet>. */
+function srcSetOf(urlAt: (w: PhotoWidth) => string): string {
+  return PHOTO_WIDTHS.map((w) => `${urlAt(w)} ${w}w`).join(', ');
+}
+
+function merchandiseBase(item: Pick<PublicMerchandise, 'id' | 'image_version'>): string {
   const base = `${API_BASE}${publicPath(`/merchandise/${item.id}/image`, { noOrigin: true })}`;
-  return item.image_version ? `${base}${base.includes('?') ? '&' : '?'}v=${item.image_version}` : base;
+  return item.image_version ? withQuery(base, 'v', item.image_version) : base;
+}
+
+/** The item's picture at `width`, or null. The version busts an old cached copy. */
+export function merchandiseImageUrl(
+  item: Pick<PublicMerchandise, 'id' | 'has_image' | 'image_version'>,
+  width: PhotoWidth = 1200,
+): string | null {
+  if (!item.has_image) return null;
+  return withQuery(merchandiseBase(item), 'w', width);
+}
+
+/** The item's picture at every width, or undefined. */
+export function merchandiseSrcSet(item: Pick<PublicMerchandise, 'id' | 'has_image' | 'image_version'>): string | undefined {
+  if (!item.has_image) return undefined;
+  const base = merchandiseBase(item);
+  return srcSetOf((w) => withQuery(base, 'w', w));
 }
 
 /** "3 cultivars · 2 products", for a species tile. */
@@ -161,7 +197,18 @@ export function getMaturityChart(filters: PublicMaturityFilters = {}) {
   return getJson<PublicMaturityChart>(publicPath(`/maturity-chart${maturityChartQuery(filters)}`));
 }
 
-export function mediaUrl(mediaId: number | null | undefined): string | null {
+/**
+ * A photo at `width`. The API keeps the full picture for evaluations and only
+ * ever sends a site a sized copy, without the camera's location.
+ */
+export function mediaUrl(mediaId: number | null | undefined, width: PhotoWidth = 1200): string | null {
   if (!mediaId) return null;
-  return `${API_BASE}${publicPath(`/media/${mediaId}/file`, { noOrigin: true })}`;
+  return withQuery(`${API_BASE}${publicPath(`/media/${mediaId}/file`, { noOrigin: true })}`, 'w', width);
+}
+
+/** A photo at every width, for <img srcSet>, or undefined. */
+export function mediaSrcSet(mediaId: number | null | undefined): string | undefined {
+  if (!mediaId) return undefined;
+  const base = `${API_BASE}${publicPath(`/media/${mediaId}/file`, { noOrigin: true })}`;
+  return srcSetOf((w) => withQuery(base, 'w', w));
 }

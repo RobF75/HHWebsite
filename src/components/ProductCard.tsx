@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { PublicProduct } from '../lib/types';
-import { mediaUrl } from '../lib/api';
+import { CARD_SIZES, mediaSrcSet, mediaUrl } from '../lib/api';
 
 interface Props {
   product: PublicProduct;
@@ -8,7 +8,7 @@ interface Props {
 
 /** A product on a species page, beside the cultivar cards. */
 export default function ProductCard({ product }: Props) {
-  const hero = mediaUrl(product.hero_media_id);
+  const hero = mediaUrl(product.hero_media_id, 800);
   return (
     <Link
       to={`/product/${product.id}`}
@@ -18,6 +18,8 @@ export default function ProductCard({ product }: Props) {
         {hero ? (
           <img
             src={hero}
+            srcSet={mediaSrcSet(product.hero_media_id)}
+            sizes={CARD_SIZES}
             alt={product.name}
             loading="lazy"
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"

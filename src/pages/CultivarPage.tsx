@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getCultivar, mediaUrl } from '../lib/api';
+import { getCultivar, mediaSrcSet, mediaUrl } from '../lib/api';
 import PhotoCarousel, { type CarouselPhoto } from '../components/PhotoCarousel';
 import type { PublicCultivarDetail, PublicAttributeValue, PublicCultivarProgram, PublicSalesProfile } from '../lib/types';
 import MaturityChart from '../components/MaturityChart';
@@ -237,10 +237,14 @@ function cultivarPhotos(cultivar: PublicCultivarDetail): CarouselPhoto[] {
     ...images.filter((m) => m.id === cultivar.hero_media_id),
     ...images.filter((m) => m.id !== cultivar.hero_media_id),
   ];
-  const photos = ordered.map((m) => ({ src: mediaUrl(m.id)!, alt: m.caption || name, caption: m.caption }));
+  const photos = ordered.map((m) => ({
+    src: mediaUrl(m.id)!, srcSet: mediaSrcSet(m.id), alt: m.caption || name, caption: m.caption,
+  }));
   // A hero the media list does not carry still leads.
   if (cultivar.hero_media_id && !ordered.some((m) => m.id === cultivar.hero_media_id)) {
-    photos.unshift({ src: mediaUrl(cultivar.hero_media_id)!, alt: name, caption: null });
+    photos.unshift({
+      src: mediaUrl(cultivar.hero_media_id)!, srcSet: mediaSrcSet(cultivar.hero_media_id), alt: name, caption: null,
+    });
   }
   return photos;
 }

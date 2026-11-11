@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getProduct, mediaUrl } from '../lib/api';
+import { getProduct, mediaSrcSet, mediaUrl } from '../lib/api';
 import type { PublicProductDetail } from '../lib/types';
 import PbrMark from '../components/PbrMark';
 import PbrNotice from '../components/PbrNotice';
@@ -61,7 +61,10 @@ export default function ProductPage() {
         <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_17rem] lg:grid-cols-[minmax(0,1fr)_20rem] gap-10 lg:gap-12">
           {hero && (
             <div className="min-w-0">
-              <PhotoCarousel key={product.id} photos={[{ src: hero, alt: product.name }]} />
+              <PhotoCarousel
+                key={product.id}
+                photos={[{ src: hero, srcSet: mediaSrcSet(product.hero_media_id), alt: product.name }]}
+              />
             </div>
           )}
 

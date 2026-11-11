@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { PublicCultivarSummary } from '../lib/types';
-import { mediaUrl } from '../lib/api';
+import { CARD_SIZES, mediaSrcSet, mediaUrl } from '../lib/api';
 import PbrMark from './PbrMark';
 
 interface Props {
@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default function CultivarCard({ cultivar }: Props) {
-  const hero = mediaUrl(cultivar.hero_media_id);
+  const hero = mediaUrl(cultivar.hero_media_id, 800);
   return (
     <Link
       to={`/cultivar/${cultivar.id}`}
@@ -18,6 +18,8 @@ export default function CultivarCard({ cultivar }: Props) {
         {hero ? (
           <img
             src={hero}
+            srcSet={mediaSrcSet(cultivar.hero_media_id)}
+            sizes={CARD_SIZES}
             alt={cultivar.name}
             loading="lazy"
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
