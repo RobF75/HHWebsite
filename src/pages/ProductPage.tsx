@@ -5,6 +5,7 @@ import type { PublicProductDetail } from '../lib/types';
 import PbrMark from '../components/PbrMark';
 import PbrNotice from '../components/PbrNotice';
 import ShopOrderCta from '../components/ShopOrderCta';
+import PhotoCarousel from '../components/PhotoCarousel';
 import { isPbrProtected } from '../lib/pbr';
 
 export default function ProductPage() {
@@ -56,17 +57,40 @@ export default function ProductPage() {
         )}
       </div>
 
-      {hero && (
-        <div className="container-prose">
-          <div className="overflow-hidden rounded bg-stone-100 flex justify-center">
-            <img src={hero} alt={product.name} className="max-h-[70vh] w-auto object-contain" />
-          </div>
-        </div>
-      )}
+      <div className="container-prose pb-16">
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_17rem] lg:grid-cols-[minmax(0,1fr)_20rem] gap-10 lg:gap-12">
+          {hero && (
+            <div className="min-w-0">
+              <PhotoCarousel key={product.id} photos={[{ src: hero, alt: product.name }]} />
+            </div>
+          )}
 
-      <div className="container-prose py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          <div className="lg:col-span-2">
+          <aside className="md:col-start-2 md:row-start-1 md:row-span-2 md:sticky md:top-28 md:self-start space-y-8">
+            <div className="rounded border border-stone-200 bg-white p-6">
+              <h3 className="font-serif text-lg mb-4">At a glance</h3>
+              <dl className="space-y-3 text-sm">
+                {product.crop_type_name && (
+                  <div className="flex justify-between gap-3"><dt className="text-ink-muted">Species</dt><dd className="text-right">{product.crop_type_name}</dd></div>
+                )}
+                {product.tree_type_name && (
+                  <div className="flex justify-between gap-3"><dt className="text-ink-muted">Size</dt><dd className="text-right">{product.tree_type_name}</dd></div>
+                )}
+                {product.tag_colour_name && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-ink-muted">Tag colour</dt>
+                    <dd className="flex items-center gap-2 text-right">
+                      {product.tag_colour_hex && (
+                        <span className="inline-block h-3 w-3 rounded-full border border-stone-300" style={{ backgroundColor: product.tag_colour_hex }} />
+                      )}
+                      {product.tag_colour_name}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+            <ShopOrderCta />
+          </aside>
+          <div className="min-w-0">
             {product.description && (
               <div className="prose-like text-base text-ink leading-relaxed whitespace-pre-line">
                 {product.description}
@@ -92,32 +116,6 @@ export default function ProductPage() {
               </section>
             )}
           </div>
-
-          <aside className="lg:sticky lg:top-28 lg:self-start space-y-8">
-            <div className="rounded border border-stone-200 bg-white p-6">
-              <h3 className="font-serif text-lg mb-4">At a glance</h3>
-              <dl className="space-y-3 text-sm">
-                {product.crop_type_name && (
-                  <div className="flex justify-between gap-3"><dt className="text-ink-muted">Species</dt><dd className="text-right">{product.crop_type_name}</dd></div>
-                )}
-                {product.tree_type_name && (
-                  <div className="flex justify-between gap-3"><dt className="text-ink-muted">Size</dt><dd className="text-right">{product.tree_type_name}</dd></div>
-                )}
-                {product.tag_colour_name && (
-                  <div className="flex justify-between gap-3">
-                    <dt className="text-ink-muted">Tag colour</dt>
-                    <dd className="flex items-center gap-2 text-right">
-                      {product.tag_colour_hex && (
-                        <span className="inline-block h-3 w-3 rounded-full border border-stone-300" style={{ backgroundColor: product.tag_colour_hex }} />
-                      )}
-                      {product.tag_colour_name}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-            </div>
-            <ShopOrderCta />
-          </aside>
         </div>
       </div>
     </article>

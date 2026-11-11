@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getCultivar, mediaUrl } from '../lib/api';
+import PhotoCarousel, { type CarouselPhoto } from '../components/PhotoCarousel';
 import type { PublicCultivarDetail, PublicAttributeValue, PublicCultivarProgram, PublicSalesProfile } from '../lib/types';
 import MaturityChart from '../components/MaturityChart';
 import CultivarOrderCta from '../components/CultivarOrderCta';
@@ -140,7 +141,7 @@ function AttributeGroups({ attributes }: { attributes: PublicAttributeValue[] })
   return (
     <section className="mt-16">
       <h2 className="font-serif text-2xl tracking-tightish mb-6">Cultivar specifications</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-10">
         {categories.map((cat) => (
           <div key={cat}>
             <h3 className="text-[11px] uppercase tracking-[0.18em] text-accent-700 mb-4">{cat}</h3>
@@ -198,7 +199,7 @@ function SalesProfile({ profile }: { profile: PublicSalesProfile }) {
         </dl>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-10">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-12 gap-y-10">
         <ProfileList title="Best for" items={profile.best_for} />
         <ProfileList title="Why choose it" items={profile.selling_points} />
         <ProfileList title="Good to know" items={profile.watch_outs} />
@@ -225,6 +226,23 @@ function SalesProfile({ profile }: { profile: PublicSalesProfile }) {
       )}
     </section>
   );
+}
+
+// The cultivar's photos for the slide show: the hero first, then the rest in
+// their order. Documents and videos in its media are left out.
+function cultivarPhotos(cultivar: PublicCultivarDetail): CarouselPhoto[] {
+  const name = cultivar.trade_name || cultivar.name;
+  const images = cultivar.media.filter((m) => !m.file_type || m.file_type.startsWith('image/'));
+  const ordered = [
+    ...images.filter((m) => m.id === cultivar.hero_media_id),
+    ...images.filter((m) => m.id !== cultivar.hero_media_id),
+  ];
+  const photos = ordered.map((m) => ({ src: mediaUrl(m.id)!, alt: m.caption || name, caption: m.caption }));
+  // A hero the media list does not carry still leads.
+  if (cultivar.hero_media_id && !ordered.some((m) => m.id === cultivar.hero_media_id)) {
+    photos.unshift({ src: mediaUrl(cultivar.hero_media_id)!, alt: name, caption: null });
+  }
+  return photos;
 }
 
 export default function CultivarPage() {
@@ -258,8 +276,7 @@ export default function CultivarPage() {
     );
   }
 
-  const hero = mediaUrl(cultivar.hero_media_id);
-  const gallery = cultivar.media.filter((m) => m.id !== cultivar.hero_media_id);
+  const photos = cultivarPhotos(cultivar);
 
   return (
     <article>
@@ -288,50 +305,17 @@ export default function CultivarPage() {
         <PbrNotice status={cultivar.protection_status} className="mt-8 max-w-2xl" />
       </div>
 
-      {/* Hero image */}
-      {hero && (
-        <div className="container-prose">
-          <div className="overflow-hidden rounded bg-stone-100 flex justify-center">
-            <img src={hero} alt={cultivar.name} className="max-h-[70vh] w-auto object-contain" />
-          </div>
-        </div>
-      )}
+      {/* Body: the photos and what follows them, with At a glance and
+          ordering beside them wherever the screen is wide enough. */}
+      <div className="container-prose pb-16">
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_17rem] lg:grid-cols-[minmax(0,1fr)_20rem] gap-10 lg:gap-12">
+          {photos.length > 0 && (
+            <div className="min-w-0">
+              <PhotoCarousel key={cultivar.id} photos={photos} />
+            </div>
+          )}
 
-      {/* Body */}
-      <div className="container-prose py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          <div className="lg:col-span-2">
-            {cultivar.website_description && (
-              <div className="prose-like text-base text-ink leading-relaxed whitespace-pre-line">
-                {cultivar.website_description}
-              </div>
-            )}
-
-            {cultivar.sales_profile && <SalesProfile profile={cultivar.sales_profile} />}
-
-            <MaturityChart attributes={cultivar.attributes} />
-
-            {cultivar.programs
-              ?.filter((p) => p.is_public)
-              .map((p) => <ProgramPanel key={p.id} program={p} />)}
-
-            <AttributeGroups attributes={cultivar.attributes} />
-
-            {gallery.length > 0 && (
-              <section className="mt-16">
-                <h2 className="font-serif text-2xl tracking-tightish mb-6">Gallery</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {gallery.map((m) => (
-                    <div key={m.id} className="aspect-square overflow-hidden rounded bg-stone-100">
-                      <img src={mediaUrl(m.id)!} alt={m.caption || m.file_name} loading="lazy" className="h-full w-full object-cover" />
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-          </div>
-
-          <aside className="lg:sticky lg:top-28 lg:self-start space-y-8">
+          <aside className="md:col-start-2 md:row-start-1 md:row-span-2 md:sticky md:top-28 md:self-start space-y-8">
             <div className="rounded border border-stone-200 bg-white p-6">
               <h3 className="font-serif text-lg mb-4">At a glance</h3>
               <dl className="space-y-3 text-sm">
@@ -368,6 +352,23 @@ export default function CultivarPage() {
               </div>
             )}
           </aside>
+          <div className="min-w-0">
+            {cultivar.website_description && (
+              <div className="prose-like text-base text-ink leading-relaxed whitespace-pre-line">
+                {cultivar.website_description}
+              </div>
+            )}
+
+            {cultivar.sales_profile && <SalesProfile profile={cultivar.sales_profile} />}
+
+            <MaturityChart attributes={cultivar.attributes} />
+
+            {cultivar.programs
+              ?.filter((p) => p.is_public)
+              .map((p) => <ProgramPanel key={p.id} program={p} />)}
+
+            <AttributeGroups attributes={cultivar.attributes} />
+          </div>
         </div>
       </div>
     </article>

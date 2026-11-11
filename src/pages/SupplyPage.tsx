@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { getMerchandise, merchandiseImageUrl } from '../lib/api';
 import type { PublicMerchandise } from '../lib/types';
 import ShopOrderCta from '../components/ShopOrderCta';
+import PhotoCarousel from '../components/PhotoCarousel';
 
 /** /supplies/:id: one supply (a bag of fertiliser, a pot) on its own page. */
 export default function SupplyPage() {
@@ -50,22 +51,23 @@ export default function SupplyPage() {
       </div>
 
       <div className="container-prose pb-16">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          <div className="lg:col-span-2 space-y-10">
-            {img && (
-              <div className="overflow-hidden rounded bg-stone-100 flex justify-center">
-                <img src={img} alt={item.name} className="max-h-[70vh] w-auto object-contain" />
-              </div>
-            )}
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_17rem] lg:grid-cols-[minmax(0,1fr)_20rem] gap-10 lg:gap-12">
+          {img && (
+            <div className="min-w-0">
+              <PhotoCarousel key={item.id} photos={[{ src: img, alt: item.name }]} />
+            </div>
+          )}
+
+          <aside className="md:col-start-2 md:row-start-1 md:row-span-2 md:sticky md:top-28 md:self-start space-y-8">
+            <ShopOrderCta />
+          </aside>
+          <div className="min-w-0">
             {item.description && (
               <div className="prose-like text-base text-ink leading-relaxed whitespace-pre-line">
                 {item.description}
               </div>
             )}
           </div>
-          <aside className="lg:sticky lg:top-28 lg:self-start space-y-8">
-            <ShopOrderCta />
-          </aside>
         </div>
       </div>
     </article>
