@@ -108,7 +108,7 @@ export interface PublicAttributeValue {
 export interface PublicCultivarProgram {
   id: number;
   name: string;
-  program_type: 'annual_tree_royalty' | 'production_royalty' | 'per_sale_royalty' | 'other';
+  program_type: 'annual_tree_royalty' | 'annual_tree_fee' | 'production_royalty' | 'per_sale_royalty' | 'other';
   custom_type_label: string | null;
   description: string | null;
   organisation_name: string | null;

@@ -11,6 +11,7 @@ import PbrNotice from '../components/PbrNotice';
 
 const PROGRAM_TYPE_LABELS: Record<PublicCultivarProgram['program_type'], string> = {
   annual_tree_royalty: 'Annual tree royalty',
+  annual_tree_fee: 'Annual tree fee',
   production_royalty: 'Production royalty',
   per_sale_royalty: 'Per-sale royalty',
   other: 'Licensing program',
