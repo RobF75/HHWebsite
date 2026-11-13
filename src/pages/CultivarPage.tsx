@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getCultivar, mediaSrcSet, mediaUrl } from '../lib/api';
+import { getCultivar, getInterestCultivars, mediaSrcSet, mediaUrl } from '../lib/api';
 import PhotoCarousel, { type CarouselPhoto } from '../components/PhotoCarousel';
 import type { PublicCultivarDetail, PublicAttributeValue, PublicCultivarProgram, PublicSalesProfile } from '../lib/types';
 import MaturityChart from '../components/MaturityChart';
 import CultivarOrderCta from '../components/CultivarOrderCta';
+import CultivarInterestCta from '../components/CultivarInterestCta';
 import { useSite } from '../context/SiteContext';
 import PbrMark from '../components/PbrMark';
 import PbrNotice from '../components/PbrNotice';
@@ -256,6 +257,17 @@ export default function CultivarPage() {
   const [cultivar, setCultivar] = useState<PublicCultivarDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // On a licensor's site that takes interests, the cultivars it licenses.
+  const [interestIds, setInterestIds] = useState<Set<number> | null>(null);
+
+  useEffect(() => {
+    if (!site.interests) return;
+    let cancelled = false;
+    getInterestCultivars()
+      .then((d) => { if (!cancelled) setInterestIds(new Set(d.cultivars.map((c) => c.id))); })
+      .catch(() => { if (!cancelled) setInterestIds(new Set()); });
+    return () => { cancelled = true; };
+  }, [site.interests]);
 
   useEffect(() => {
     if (!id) return;
@@ -342,7 +354,9 @@ export default function CultivarPage() {
               </dl>
             </div>
 
-            {site.shop ? (
+            {interestIds?.has(cultivar.id) ? (
+              <CultivarInterestCta cultivarId={cultivar.id} siteName={site.name} />
+            ) : site.shop ? (
               <CultivarOrderCta cultivarId={cultivar.id} />
             ) : (
               <div className="rounded bg-stone-100 border border-stone-200 p-6">

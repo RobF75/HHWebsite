@@ -16,6 +16,8 @@ import RegisterPage from './pages/RegisterPage';
 import OrderPage from './pages/OrderPage';
 import MyOrdersPage from './pages/MyOrdersPage';
 import TradeAccountPage from './pages/TradeAccountPage';
+import InterestPage from './pages/InterestPage';
+import InterestLinkPage from './pages/InterestLinkPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 export default function App() {
@@ -30,6 +32,9 @@ export default function App() {
         <Route path="order" element={<RequireSite feature="shop"><RequireAuth><OrderPage /></RequireAuth></RequireSite>} />
         <Route path="account/orders" element={<RequireSite feature="shop"><RequireAuth><MyOrdersPage /></RequireAuth></RequireSite>} />
         <Route path="account/trade" element={<RequireSite feature="shop"><RequireAuth><TradeAccountPage /></RequireAuth></RequireSite>} />
+        <Route path="interest/new" element={<RequireSite feature="interests"><InterestPage /></RequireSite>} />
+        {/* The grower's emailed link: still opens if the site later stops taking new interests. */}
+        <Route path="interest/:token" element={<InterestLinkPage />} />
         <Route path="cultivar/:id" element={<CultivarPage />} />
         <Route path="product/:id" element={<ProductPage />} />
         {/* A static segment, so it outranks :speciesSlug; a crop called

@@ -167,6 +167,11 @@ export interface PublicSite {
   shop: boolean;
   /** The organisation that sells on an organisation's shop; null on ours. */
   seller_org_id?: number | null;
+  /**
+   * Growers send an expression of interest for the cultivars the
+   * organisation licenses, instead of ordering. Absent from an older API.
+   */
+  interests?: boolean;
   has_logo: boolean;
   branding: {
     header_text: string | null;
@@ -399,4 +404,89 @@ export interface PublicMaturityFilters {
   fromDate?: string;
   toDate?: string;
   includeEstimates?: boolean;
+}
+
+// ---- Expressions of interest (HHjsFrontEnd docs/planting-interest-plan.md) ----
+
+export interface InterestCultivar {
+  id: number;
+  name: string;
+  trade_name: string | null;
+  crop_type_name: string | null;
+}
+
+export interface InterestCultivars {
+  cultivars: InterestCultivar[];
+  /** Rootstocks published on the site, offered as suggestions. */
+  rootstocks: string[];
+}
+
+export type InterestNurseryChoice = 'named' | 'no_preference' | 'self';
+
+export interface InterestSubmissionLine {
+  cultivar_id: number;
+  rootstock?: string;
+  tree_type?: string;
+  trees: number;
+  nursery_choice: InterestNurseryChoice;
+  nursery_text?: string;
+}
+
+export interface InterestSubmission {
+  business_name: string;
+  contact_name: string;
+  email: string;
+  phone?: string;
+  abn?: string;
+  farm_name?: string;
+  address?: string;
+  region?: string;
+  hectares?: number | null;
+  planting_season?: string;
+  notes?: string;
+  lines: InterestSubmissionLine[];
+  /** Left empty by people; a script filling every field fills it. */
+  website?: string;
+}
+
+export type InterestStatus = 'unconfirmed' | 'submitted' | 'question' | 'approved' | 'declined' | 'withdrawn';
+
+export interface InterestViewLine {
+  id: number;
+  cultivar_id: number;
+  cultivar_name: string;
+  rootstock: string | null;
+  tree_type: string | null;
+  trees: number;
+  nursery_choice: InterestNurseryChoice;
+  nursery_text: string | null;
+  decision: 'open' | 'approved' | 'declined';
+  approved_trees?: number;
+  approved_season?: string | null;
+  nursery?: string | null;
+  decline_reason?: string | null;
+}
+
+export interface InterestView {
+  status: InterestStatus;
+  confirm_expired: boolean;
+  licensor_name: string | null;
+  site_name: string | null;
+  business_name: string;
+  contact_name: string;
+  email: string;
+  phone: string | null;
+  farm_name: string | null;
+  address: string | null;
+  region: string | null;
+  hectares: number | null;
+  planting_season: string | null;
+  notes: string | null;
+  created_at: string;
+  answered_at: string | null;
+  answer_message: string | null;
+  lines: InterestViewLine[];
+  thread: { kind: string; body: string | null; by_grower: boolean; created_at: string }[];
+  can_answer: boolean;
+  can_withdraw: boolean;
 }

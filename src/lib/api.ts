@@ -1,5 +1,8 @@
 import type {
   ApiEnvelope,
+  InterestCultivars,
+  InterestSubmission,
+  InterestView,
   PublicCultivarDetail,
   PublicCultivarSummary,
   PublicMaturityChart,
@@ -70,6 +73,51 @@ async function getJson<T>(path: string): Promise<T> {
     throw new ApiError(err?.message || `Request failed: ${res.status} ${res.statusText}`, res.status, err?.code, err?.moved_to);
   }
   return body.data;
+}
+
+async function sendJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body ?? {}),
+  });
+  const parsed = (await res.json().catch(() => null)) as ApiEnvelope<T> | null;
+  if (!res.ok || !parsed || !parsed.success || parsed.data === undefined) {
+    const err = parsed?.error as { message?: string; code?: string } | undefined;
+    throw new ApiError(err?.message || `Request failed: ${res.status} ${res.statusText}`, res.status, err?.code);
+  }
+  return parsed.data;
+}
+
+// ---- Expressions of interest (HHjsFrontEnd docs/planting-interest-plan.md) ----
+// An organisation's site only. No account: the emailed link's token is the
+// grower's credential, sent in the path.
+
+/** The cultivars this site takes interests for, and rootstocks to suggest. */
+export function getInterestCultivars() {
+  return getJson<InterestCultivars>(publicPath('/interests/cultivars'));
+}
+
+export function sendInterest(body: InterestSubmission) {
+  return sendJson<{ sent: boolean; link: string | null }>(publicPath('/interests'), body);
+}
+
+const linkPath = (token: string, tail = '') => publicPath(`/interests/link/${encodeURIComponent(token)}${tail}`);
+
+export function getInterestLink(token: string) {
+  return getJson<InterestView>(linkPath(token));
+}
+
+export function confirmInterest(token: string) {
+  return sendJson<InterestView>(linkPath(token, '/confirm'), {});
+}
+
+export function answerInterestQuestion(token: string, body: string) {
+  return sendJson<InterestView>(linkPath(token, '/answer'), { body });
+}
+
+export function withdrawInterest(token: string, reason: string) {
+  return sendJson<InterestView>(linkPath(token, '/withdraw'), { reason });
 }
 
 /** An organisation's site: its name, branding and what it offers. */
